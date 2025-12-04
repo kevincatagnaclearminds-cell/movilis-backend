@@ -1,9 +1,9 @@
 const app = require('./app');
 const config = require('./config/config');
-const { initStore } = require('./store/memoryStore');
+const { testConnection } = require('./config/postgres');
 
-// Inicializar store en memoria (sin MongoDB)
-initStore();
+// Conectar a PostgreSQL
+testConnection();
 
 // Iniciar servidor
 const PORT = config.port || 3000;
@@ -17,4 +17,3 @@ process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err);
   process.exit(1);
 });
-

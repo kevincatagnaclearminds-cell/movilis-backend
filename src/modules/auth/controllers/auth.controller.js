@@ -15,10 +15,11 @@ class AuthController {
       const result = await authService.register(req.body);
       res.status(201).json({
         success: true,
-        data: result
+        data: result,
+        message: 'Usuario registrado exitosamente'
       });
     } catch (error) {
-      if (error.message === 'El email ya está registrado') {
+      if (error.message === 'La cédula ya está registrada') {
         return res.status(409).json({
           success: false,
           error: { message: error.message }
@@ -28,6 +29,7 @@ class AuthController {
     }
   }
 
+  // Login solo con cédula
   async login(req, res, next) {
     try {
       const errors = validationResult(req);
@@ -38,15 +40,16 @@ class AuthController {
         });
       }
 
-      const { email, password } = req.body;
-      const result = await authService.login(email, password);
+      const { cedula } = req.body;
+      const result = await authService.login(cedula);
 
       res.json({
         success: true,
-        data: result
+        data: result,
+        message: 'Inicio de sesión exitoso'
       });
     } catch (error) {
-      if (error.message === 'Credenciales inválidas' || error.message === 'Usuario inactivo') {
+      if (error.message === 'Cédula no registrada' || error.message === 'Usuario inactivo') {
         return res.status(401).json({
           success: false,
           error: { message: error.message }
@@ -62,9 +65,36 @@ class AuthController {
         success: true,
         data: {
           id: req.user._id,
+          cedula: req.user.cedula,
           name: req.user.name,
-          email: req.user.email,
           role: req.user.role
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // POST /api/auth/logout
+  async logout(req, res, next) {
+    try {
+      res.json({
+        message: 'Sesión cerrada correctamente'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // GET /api/auth/verify
+  async verify(req, res, next) {
+    try {
+      res.json({
+        valid: true,
+        user: {
+          id: req.user._id,
+          cedula: req.user.cedula,
+          name: req.user.name
         }
       });
     } catch (error) {
@@ -74,4 +104,3 @@ class AuthController {
 }
 
 module.exports = new AuthController();
-

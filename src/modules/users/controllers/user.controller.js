@@ -1,8 +1,24 @@
-// Usar servicio en memoria (sin MongoDB)
-const userService = require('../services/user.memory.service');
+// Usar servicio con PostgreSQL
+const userService = require('../services/user.postgres.service');
 const { validationResult } = require('express-validator');
 
 class UserController {
+  // GET /api/users/profile - Obtener perfil del usuario autenticado
+  async getProfile(req, res, next) {
+    try {
+      res.json({
+        user: {
+          id: req.user._id,
+          name: req.user.name,
+          email: req.user.email,
+          createdAt: req.user.createdAt
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getUsers(req, res, next) {
     try {
       const users = await userService.getAllUsers();

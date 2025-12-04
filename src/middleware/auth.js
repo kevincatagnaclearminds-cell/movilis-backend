@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
-// Usar servicio en memoria (sin MongoDB)
-const userService = require('../modules/users/services/user.memory.service');
+// Usar servicio con PostgreSQL
+const userService = require('../modules/users/services/user.postgres.service');
 
 const authenticate = async (req, res, next) => {
   try {

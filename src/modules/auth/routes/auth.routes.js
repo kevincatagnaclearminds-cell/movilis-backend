@@ -6,20 +6,20 @@ const { body } = require('express-validator');
 
 // Validaciones
 const registerValidation = [
+  body('cedula').trim().notEmpty().withMessage('La cédula es requerida'),
   body('name').trim().notEmpty().withMessage('El nombre es requerido'),
-  body('email').isEmail().withMessage('Email inválido'),
-  body('password').isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres')
+  body('email').optional().isEmail().withMessage('Email inválido')
 ];
 
 const loginValidation = [
-  body('email').isEmail().withMessage('Email inválido'),
-  body('password').notEmpty().withMessage('La contraseña es requerida')
+  body('cedula').trim().notEmpty().withMessage('La cédula es requerida')
 ];
 
 // Rutas
 router.post('/register', registerValidation, authController.register);
 router.post('/login', loginValidation, authController.login);
 router.get('/me', authenticate, authController.getMe);
+router.post('/logout', authenticate, authController.logout);
+router.get('/verify', authenticate, authController.verify);
 
 module.exports = router;
-

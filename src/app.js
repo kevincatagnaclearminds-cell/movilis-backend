@@ -33,18 +33,17 @@ if (config.env === 'development') {
   app.use(morgan('dev'));
 }
 
-// Health check
-app.get('/health', (req, res) => {
+// Health check - en /api/health como espera el frontend
+app.get('/api/health', (req, res) => {
   res.status(200).json({
-    status: 'OK',
-    message: 'Servidor funcionando correctamente',
+    status: 'ok',
     timestamp: new Date().toISOString()
   });
 });
 
 // Rutas
 app.use('/api/auth', authRoutes);
-app.use('/api/certificates', certificateRoutes);
+app.use('/api/certificados', certificateRoutes);  // Cambiado a español como espera el frontend
 app.use('/api/users', userRoutes);
 
 // Middleware de errores (debe ir al final)

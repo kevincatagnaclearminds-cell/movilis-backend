@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('../../../config/config');
-// Usar servicio en memoria (sin MongoDB)
-const userService = require('../../users/services/user.memory.service');
+// Usar servicio con PostgreSQL
+const userService = require('../../users/services/user.postgres.service');
 
 class AuthService {
   generateToken(userId) {
@@ -11,10 +11,10 @@ class AuthService {
   }
 
   async register(userData) {
-    // Verificar si el usuario ya existe
-    const existingUser = await userService.getUserByEmail(userData.email);
+    // Verificar si la cédula ya existe
+    const existingUser = await userService.getUserByCedula(userData.cedula);
     if (existingUser) {
-      throw new Error('El email ya está registrado');
+      throw new Error('La cédula ya está registrada');
     }
 
     // Crear nuevo usuario
@@ -24,25 +24,24 @@ class AuthService {
     return {
       user: {
         id: user._id,
+        cedula: user.cedula,
         name: user.name,
-        email: user.email,
         role: user.role
       },
       token
     };
   }
 
-  async login(email, password) {
-    // Buscar usuario
-    const user = await userService.getUserByEmail(email);
+  // Login solo con cédula
+  async login(cedula) {
+    console.log('🔐 Intento de login con cédula:', cedula);
+    
+    // Buscar usuario por cédula
+    const user = await userService.getUserByCedula(cedula);
+    console.log('👤 Usuario encontrado:', user ? user.name : 'No');
+    
     if (!user) {
-      throw new Error('Credenciales inválidas');
-    }
-
-    // Verificar contraseña
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
-      throw new Error('Credenciales inválidas');
+      throw new Error('Cédula no registrada');
     }
 
     // Verificar si el usuario está activo
@@ -56,8 +55,8 @@ class AuthService {
     return {
       user: {
         id: user._id,
+        cedula: user.cedula,
         name: user.name,
-        email: user.email,
         role: user.role
       },
       token
@@ -66,4 +65,3 @@ class AuthService {
 }
 
 module.exports = new AuthService();
-

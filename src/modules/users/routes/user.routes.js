@@ -15,6 +15,7 @@ const updateUserValidation = [
 ];
 
 // Rutas
+router.get('/profile', userController.getProfile);  // Obtener perfil del usuario autenticado
 router.get('/', authorize('admin'), userController.getUsers);
 router.get('/:id', userController.getUserById);
 router.put('/:id', updateUserValidation, userController.updateUser);
