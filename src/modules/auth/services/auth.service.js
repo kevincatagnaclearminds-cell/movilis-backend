@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('../../../config/config');
-const userService = require('../../users/services/user.service');
+// Usar servicio en memoria (sin MongoDB)
+const userService = require('../../users/services/user.memory.service');
 
 class AuthService {
   generateToken(userId) {

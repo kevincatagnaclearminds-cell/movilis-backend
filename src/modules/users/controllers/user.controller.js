@@ -1,4 +1,5 @@
-const userService = require('../services/user.service');
+// Usar servicio en memoria (sin MongoDB)
+const userService = require('../services/user.memory.service');
 const { validationResult } = require('express-validator');
 
 class UserController {

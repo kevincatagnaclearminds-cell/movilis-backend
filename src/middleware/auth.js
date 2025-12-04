@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
-const User = require('../modules/users/models/user.model');
+// Usar servicio en memoria (sin MongoDB)
+const userService = require('../modules/users/services/user.memory.service');
 
 const authenticate = async (req, res, next) => {
   try {
@@ -14,7 +15,7 @@ const authenticate = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, config.jwtSecret);
-    const user = await User.findById(decoded.userId).select('-password');
+    const user = await userService.getUserById(decoded.userId);
 
     if (!user) {
       return res.status(401).json({

@@ -1,9 +1,9 @@
 const app = require('./app');
 const config = require('./config/config');
-const { connectDatabase } = require('./config/database');
+const { initStore } = require('./store/memoryStore');
 
-// Conectar a la base de datos
-connectDatabase();
+// Inicializar store en memoria (sin MongoDB)
+initStore();
 
 // Iniciar servidor
 const PORT = config.port || 3000;
