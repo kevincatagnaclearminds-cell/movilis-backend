@@ -38,9 +38,9 @@ class AuthService {
     
     // Buscar usuario por cédula
     const user = await userService.getUserByCedula(cedula);
-    console.log('👤 Usuario encontrado:', user ? user.name : 'No');
     
     if (!user) {
+      console.log('❌ Cédula no encontrada:', cedula);
       throw new Error('Cédula no registrada');
     }
 
@@ -48,6 +48,13 @@ class AuthService {
     if (!user.isActive) {
       throw new Error('Usuario inactivo');
     }
+
+    // Mostrar info del usuario en consola
+    console.log('✅ Login exitoso!');
+    console.log('👤 Nombre:', user.name);
+    console.log('📧 Email:', user.email || 'No registrado');
+    console.log('🎫 Cédula:', user.cedula);
+    console.log('🔑 Rol:', user.role);
 
     // Generar token
     const token = this.generateToken(user._id);
@@ -57,6 +64,10 @@ class AuthService {
         id: user._id,
         cedula: user.cedula,
         name: user.name,
+        nombre: user.name,
+        nombreCompleto: user.name,
+        email: user.email,
+        correo: user.email,
         role: user.role
       },
       token
