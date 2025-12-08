@@ -4,8 +4,10 @@ const { validationResult } = require('express-validator');
 class AuthController {
   async register(req, res, next) {
     try {
+      console.log('📝 [Register] Datos recibidos:', JSON.stringify(req.body, null, 2));
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ [Register] Errores de validación:', errors.array());
         return res.status(400).json({
           success: false,
           error: { message: 'Datos inválidos', errors: errors.array() }
@@ -32,8 +34,10 @@ class AuthController {
   // Login solo con cédula
   async login(req, res, next) {
     try {
+      console.log('🔐 [Login] Datos recibidos:', JSON.stringify(req.body, null, 2));
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ [Login] Errores de validación:', errors.array());
         return res.status(400).json({
           success: false,
           error: { message: 'Datos inválidos', errors: errors.array() }
