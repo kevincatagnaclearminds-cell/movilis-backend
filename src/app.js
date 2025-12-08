@@ -8,6 +8,7 @@ const config = require('./config/config');
 const authRoutes = require('./modules/auth/routes/auth.routes');
 const certificateRoutes = require('./modules/certificates/routes/certificate.routes');
 const userRoutes = require('./modules/users/routes/user.routes');
+const firmaRoutes = require('./modules/firma/routes/firma.routes');
 
 // Importar middleware de errores
 const errorHandler = require('./middleware/errorHandler');
@@ -45,6 +46,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/certificados', certificateRoutes);  // Cambiado a español como espera el frontend
 app.use('/api/users', userRoutes);
+app.use('/api/firma', firmaRoutes);
 
 // Middleware de errores (debe ir al final)
 app.use(notFound);

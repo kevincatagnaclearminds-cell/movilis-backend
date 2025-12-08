@@ -71,6 +71,10 @@ class AuthController {
           id: req.user._id,
           cedula: req.user.cedula,
           name: req.user.name,
+          nombre: req.user.name,
+          nombreCompleto: req.user.name,
+          email: req.user.email,
+          correo: req.user.email,
           role: req.user.role
         }
       });
@@ -98,7 +102,11 @@ class AuthController {
         user: {
           id: req.user._id,
           cedula: req.user.cedula,
-          name: req.user.name
+          name: req.user.name,
+          nombre: req.user.name,
+          nombreCompleto: req.user.name,
+          email: req.user.email,
+          correo: req.user.email
         }
       });
     } catch (error) {
