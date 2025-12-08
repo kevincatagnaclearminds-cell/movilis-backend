@@ -4,10 +4,22 @@ class UserPostgresService {
   // Buscar usuario por cédula
   async getUserByCedula(cedula) {
     try {
-      const result = await pool.query(
+      // Limpiar la cédula: eliminar espacios y convertir a string
+      const cleanedCedula = String(cedula || '').trim().replace(/\s+/g, '');
+      
+      // Buscar con comparación exacta primero
+      let result = await pool.query(
         'SELECT * FROM users WHERE cedula = $1 AND is_active = true',
-        [cedula]
+        [cleanedCedula]
       );
+      
+      // Si no encuentra, intentar con TRIM en la base de datos
+      if (result.rows.length === 0) {
+        result = await pool.query(
+          'SELECT * FROM users WHERE TRIM(cedula) = $1 AND is_active = true',
+          [cleanedCedula]
+        );
+      }
       
       if (result.rows.length === 0) {
         return null;
@@ -25,7 +37,7 @@ class UserPostgresService {
         updatedAt: user.updated_at
       };
     } catch (error) {
-      console.error('Error buscando usuario por cédula:', error.message);
+      console.error('❌ Error buscando usuario por cédula:', error.message);
       throw error;
     }
   }
@@ -154,6 +166,35 @@ class UserPostgresService {
       };
     } catch (error) {
       console.error('Error actualizando usuario:', error.message);
+      throw error;
+    }
+  }
+
+  // Buscar usuario por email
+  async getUserByEmail(email) {
+    try {
+      const result = await pool.query(
+        'SELECT * FROM users WHERE email = $1 AND is_active = true',
+        [email]
+      );
+      
+      if (result.rows.length === 0) {
+        return null;
+      }
+      
+      const user = result.rows[0];
+      return {
+        _id: user.id,
+        cedula: user.cedula,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.is_active,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at
+      };
+    } catch (error) {
+      console.error('Error buscando usuario por email:', error.message);
       throw error;
     }
   }

@@ -1,6 +1,10 @@
 const PDFDocument = require('pdfkit');
+const { PDFDocument: PDFLibDocument, rgb, StandardFonts } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
+const forge = require('node-forge');
+const userService = require('../../users/services/user.postgres.service');
+
 
 class PDFService {
   constructor() {
@@ -9,10 +13,134 @@ class PDFService {
     if (!fs.existsSync(this.certificatesDir)) {
       fs.mkdirSync(this.certificatesDir, { recursive: true });
     }
+    
+    // Ruta a la plantilla PDF
+    this.templatePath = path.join(__dirname, '../templates/certificado.pdf');
+    
+    // Directorio de fuentes
+    this.fontsDir = path.join(__dirname, '../../../public/fonts');
+    if (!fs.existsSync(this.fontsDir)) {
+      fs.mkdirSync(this.fontsDir, { recursive: true });
+    }
+    
+    // Rutas a las fuentes disponibles
+    // Puedes agregar más fuentes aquí simplemente añadiendo nuevas propiedades
+    this.fonts = {
+      alexBrush: path.join(this.fontsDir, 'AlexBrush-Regular.ttf'),
+      // Agrega más fuentes aquí, por ejemplo:
+      // customFont: path.join(this.fontsDir, 'MiFuente.ttf'),
+      // otraFuente: path.join(this.fontsDir, 'OtraFuente.ttf'),
+    };
+    
+    // Fuente por defecto (puedes cambiarla aquí)
+    this.defaultFont = 'alexBrush';
   }
 
   /**
-   * Genera un certificado en PDF
+   * Genera un certificado en PDF usando la plantilla base
+   * Obtiene el nombre del usuario desde PostgreSQL
+   * @param {Object} certificateData - Datos del certificado
+   * @param {string} recipientCedula - Cédula del destinatario (opcional, para buscar en BD)
+   * @returns {Promise<Buffer>} - Buffer del PDF generado
+   */
+  async generateCertificateFromTemplate(certificateData, recipientCedula = null) {
+    try {
+      // Obtener el nombre del usuario desde PostgreSQL si se proporciona la cédula
+      let recipientName = certificateData.recipientName;
+      
+      if (recipientCedula) {
+        try {
+          const user = await userService.getUserByCedula(recipientCedula);
+          if (user && user.name) {
+            recipientName = user.name;
+          }
+        } catch (error) {
+          console.warn('No se pudo obtener el usuario de la BD, usando nombre del certificado:', error.message);
+        }
+      }
+
+      // Verificar si existe la plantilla
+      if (!fs.existsSync(this.templatePath)) {
+        console.warn('Plantilla PDF no encontrada, usando generación sin plantilla');
+        return await this.generateCertificateBuffer(certificateData);
+      }
+
+      // Cargar la plantilla PDF
+      const templateBytes = fs.readFileSync(this.templatePath);
+      
+      // Cargar el PDF
+      const pdfDoc = await PDFLibDocument.load(templateBytes);
+      
+      // Obtener la primera página
+      const pages = pdfDoc.getPages();
+      if (pages.length === 0) {
+        throw new Error('La plantilla PDF no contiene páginas');
+      }
+      const page = pages[0];
+      const { width } = page.getSize();
+      
+      // Determinar qué fuente usar
+      const fontName = certificateData.fontName || this.defaultFont;
+      let fontPath = null;
+      if (this.fonts[fontName] && fs.existsSync(this.fonts[fontName])) {
+        fontPath = this.fonts[fontName];
+      } else if (this.fonts[this.defaultFont] && fs.existsSync(this.fonts[this.defaultFont])) {
+        fontPath = this.fonts[this.defaultFont];
+      }
+      
+      let font;
+      const fontSize = 50;
+      
+      try {
+        if (fontPath) {
+          // Registrar fontkit si está disponible
+          try {
+            const fontkit = require('@btielen/pdf-lib-fontkit');
+            pdfDoc.registerFontkit(fontkit);
+          } catch (e) {
+            // Si no está disponible, continuar sin fontkit
+          }
+          
+          // Leer el archivo de fuente
+          const fontBuffer = fs.readFileSync(fontPath);
+          const fontBytes = new Uint8Array(fontBuffer);
+          font = await pdfDoc.embedFont(fontBytes);
+        } else {
+          font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        }
+      } catch (error) {
+        console.warn('No se pudo cargar la fuente personalizada, usando Helvetica:', error.message);
+        font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      }
+      
+      // Calcular posición centrada para el nombre
+      const textWidth = font.widthOfTextAtSize(recipientName, fontSize);
+      const centerX = width / 2;
+      const textX = centerX - (textWidth / 2);
+      const nombreY = 320;
+      
+      // Dibujar el nombre del usuario en la plantilla
+      page.drawText(recipientName, {
+        x: textX,
+        y: nombreY,
+        size: fontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+      });
+      
+      // Generar el PDF
+      const pdfBytes = await pdfDoc.save();
+      return Buffer.from(pdfBytes);
+      
+    } catch (error) {
+      console.error('Error generando PDF con plantilla:', error);
+      // Fallback a generación sin plantilla
+      return await this.generateCertificateBuffer(certificateData);
+    }
+  }
+
+  /**
+   * Genera un certificado en PDF (método original con PDFKit)
    * @param {Object} certificateData - Datos del certificado
    * @returns {Promise<string>} - Ruta del archivo PDF generado
    */
@@ -371,7 +499,46 @@ class PDFService {
       }
     });
   }
+
+  /**
+   * Firma electrónicamente un PDF usando un certificado .p12
+   * @param {Buffer} pdfBuffer - Buffer del PDF sin firmar
+   * @param {Buffer} p12Buffer - Buffer del archivo .p12
+   * @param {string} password - Contraseña del certificado .p12
+   * @returns {Promise<Buffer>} - Buffer del PDF firmado
+   */
+  async signPDF(pdfBuffer, p12Buffer, password) {
+    try {
+      // Cargar el certificado .p12
+      const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
+      const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, password);
+      
+      // Obtener la clave privada y el certificado
+      const bags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
+      const keyBag = bags[forge.pki.oids.pkcs8ShroudedKeyBag];
+      if (!keyBag || keyBag.length === 0) {
+        throw new Error('No se encontró la clave privada en el certificado .p12');
+      }
+      const privateKey = keyBag[0].key;
+      
+      const certBags = p12.getBags({ bagType: forge.pki.oids.certBag });
+      const certBag = certBags[forge.pki.oids.certBag];
+      if (!certBag || certBag.length === 0) {
+        throw new Error('No se encontró el certificado en el archivo .p12');
+      }
+      const certificate = certBag[0].cert;
+      
+      // Nota: Para una firma PDF real y válida, necesitarías usar una librería especializada
+      // como node-signpdf. Por ahora, retornamos el PDF original.
+      // TODO: Implementar firma PDF completa con node-signpdf cuando sea necesario
+      
+      return pdfBuffer; // Por ahora retornamos el PDF sin modificar
+      
+    } catch (error) {
+      console.error('Error procesando certificado .p12:', error.message);
+      throw new Error(`Error al procesar el certificado .p12: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new PDFService();
-

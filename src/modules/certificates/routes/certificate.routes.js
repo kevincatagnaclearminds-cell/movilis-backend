@@ -6,35 +6,44 @@ const { body, query, param } = require('express-validator');
 
 // Validaciones
 const createCertificateValidation = [
-  body('recipientName')
-    .trim()
-    .notEmpty()
-    .withMessage('El nombre del destinatario es requerido')
-    .isLength({ min: 2, max: 100 })
-    .withMessage('El nombre debe tener entre 2 y 100 caracteres'),
-  body('recipientEmail')
-    .trim()
-    .notEmpty()
-    .withMessage('El email del destinatario es requerido')
-    .isEmail()
-    .withMessage('Email inválido'),
   body('courseName')
     .trim()
     .notEmpty()
     .withMessage('El nombre del curso es requerido')
     .isLength({ min: 2, max: 200 })
     .withMessage('El nombre del curso debe tener entre 2 y 200 caracteres'),
+  // Validación: debe tener destinatarioId o recipientId
+  body('destinatarioId')
+    .optional()
+    .notEmpty()
+    .withMessage('El ID del destinatario es requerido'),
+  body('recipientId')
+    .optional()
+    .notEmpty()
+    .withMessage('El ID del destinatario es requerido'),
+  body().custom((value) => {
+    if (!value.destinatarioId && !value.recipientId) {
+      throw new Error('Debe proporcionar destinatarioId o recipientId');
+    }
+    return true;
+  }),
   body('courseDescription')
     .optional()
     .trim()
     .isLength({ max: 500 })
     .withMessage('La descripción no puede exceder 500 caracteres'),
   body('expirationDate')
-    .optional()
-    .isISO8601()
-    .withMessage('Fecha de expiración inválida')
+    .optional({ nullable: true, checkFalsy: true })
     .custom((value) => {
-      if (new Date(value) <= new Date()) {
+      if (!value || value === null || value === '') {
+        return true; // Es opcional, puede ser null o vacío
+      }
+      // Si tiene valor, debe ser una fecha válida y futura
+      const date = new Date(value);
+      if (isNaN(date.getTime())) {
+        throw new Error('Fecha de expiración inválida');
+      }
+      if (date <= new Date()) {
         throw new Error('La fecha de expiración debe ser futura');
       }
       return true;
@@ -166,8 +175,8 @@ router.get(
   '/:id',
   [
     param('id')
-      .isMongoId()
-      .withMessage('ID de certificado inválido')
+      .notEmpty()
+      .withMessage('ID de certificado requerido')
   ],
   certificateController.getCertificateById
 );
@@ -176,8 +185,8 @@ router.put(
   '/:id',
   [
     param('id')
-      .isMongoId()
-      .withMessage('ID de certificado inválido'),
+      .notEmpty()
+      .withMessage('ID de certificado requerido'),
     ...updateCertificateValidation
   ],
   certificateController.updateCertificate
@@ -187,8 +196,8 @@ router.post(
   '/:id/issue',
   [
     param('id')
-      .isMongoId()
-      .withMessage('ID de certificado inválido')
+      .notEmpty()
+      .withMessage('ID de certificado requerido')
   ],
   certificateController.issueCertificate
 );
@@ -197,8 +206,8 @@ router.get(
   '/:id/download',
   [
     param('id')
-      .isMongoId()
-      .withMessage('ID de certificado inválido')
+      .notEmpty()
+      .withMessage('ID de certificado requerido')
   ],
   certificateController.downloadCertificate
 );
@@ -207,7 +216,7 @@ router.get(
   '/:id/view',
   [
     param('id')
-      .isMongoId()
+      .notEmpty()
       .withMessage('ID de certificado inválido')
   ],
   certificateController.viewCertificate
@@ -217,8 +226,8 @@ router.post(
   '/:id/revoke',
   [
     param('id')
-      .isMongoId()
-      .withMessage('ID de certificado inválido')
+      .notEmpty()
+      .withMessage('ID de certificado requerido')
   ],
   certificateController.revokeCertificate
 );

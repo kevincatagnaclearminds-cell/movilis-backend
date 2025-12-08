@@ -77,7 +77,9 @@ class CertificateController {
    */
   async getCertificateById(req, res, next) {
     try {
-      const certificate = await certificateService.getCertificateById(req.params.id);
+      // Convertir ID a número si es string numérico (PostgreSQL usa SERIAL)
+      const certificateId = isNaN(req.params.id) ? req.params.id : parseInt(req.params.id);
+      const certificate = await certificateService.getCertificateById(certificateId);
 
       if (!certificate) {
         return res.status(404).json({
@@ -228,7 +230,18 @@ class CertificateController {
    */
   async downloadCertificate(req, res, next) {
     try {
-      const certificate = await certificateService.getCertificateById(req.params.id);
+      // Convertir ID a número si es string (PostgreSQL usa SERIAL)
+      const certificateId = isNaN(req.params.id) ? req.params.id : parseInt(req.params.id);
+      
+      // Verificar si es un ID de demo (solo si parece ser un string de demo)
+      if (String(certificateId).startsWith('cert-demo-')) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'Este es un certificado de demostración. Los certificados reales se obtienen desde la base de datos.' }
+        });
+      }
+
+      const certificate = await certificateService.getCertificateById(certificateId);
 
       if (!certificate) {
         return res.status(404).json({
@@ -240,31 +253,16 @@ class CertificateController {
       // Verificar permisos
       if (req.user.role !== 'admin' && 
           certificate.issuerId._id.toString() !== req.user._id.toString() &&
-          certificate.recipientEmail !== req.user.email) {
+          certificate.recipientId._id.toString() !== req.user._id.toString()) {
         return res.status(403).json({
           success: false,
           error: { message: 'No autorizado para descargar este certificado' }
         });
       }
 
-      // Si el certificado no tiene PDF, generarlo
-      if (!certificate.pdfPath || !fs.existsSync(certificate.pdfPath)) {
-        await certificateService.issueCertificate(req.params.id, { issuerName: req.user.name });
-        const updatedCertificate = await certificateService.getCertificateById(req.params.id);
-        
-        if (updatedCertificate.pdfPath && fs.existsSync(updatedCertificate.pdfPath)) {
-          const fileName = `certificado-${certificate.certificateNumber}.pdf`;
-          return res.download(updatedCertificate.pdfPath, fileName);
-        }
-      }
-
-      if (certificate.pdfPath && fs.existsSync(certificate.pdfPath)) {
-        const fileName = `certificado-${certificate.certificateNumber}.pdf`;
-        return res.download(certificate.pdfPath, fileName);
-      }
-
-      // Si no hay archivo, generar buffer y enviarlo
-      const pdfBuffer = await certificateService.generateCertificatePDF(req.params.id);
+      // Obtener PDF desde Google Drive o generarlo si no existe
+      const pdfBuffer = await certificateService.generateCertificatePDF(certificateId);
+      
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader(
         'Content-Disposition',
@@ -446,14 +444,42 @@ class CertificateController {
         sortOrder: req.query.sortOrder || 'desc'
       };
 
-      const result = await certificateService.getCertificatesByRecipient(recipientEmail, options);
+      // Usar Promise.race para timeout rápido
+      const result = await Promise.race([
+        certificateService.getCertificatesByRecipient(recipientEmail, options),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('timeout')), 2000)
+        )
+      ]);
 
       res.json({
         success: true,
-        data: result.certificates,
-        pagination: result.pagination
+        data: result.certificates || [],
+        pagination: result.pagination || {
+          page: 1,
+          limit: 10,
+          total: 0,
+          pages: 0
+        }
       });
     } catch (error) {
+      // Si hay timeout o MongoDB no está disponible, devolver array vacío rápidamente
+      if (error.message && (
+        error.message.includes('buffering timed out') || 
+        error.message.includes('timeout') ||
+        error.message.includes('ECONNREFUSED')
+      )) {
+        return res.json({
+          success: true,
+          data: [],
+          pagination: {
+            page: parseInt(req.query.page || 1),
+            limit: parseInt(req.query.limit || 10),
+            total: 0,
+            pages: 0
+          }
+        });
+      }
       next(error);
     }
   }

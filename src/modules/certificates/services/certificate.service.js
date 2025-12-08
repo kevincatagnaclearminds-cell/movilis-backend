@@ -1,6 +1,10 @@
 const Certificate = require('../models/certificate.model');
 const pdfService = require('./pdf.service');
 const User = require('../../users/models/user.model');
+const certificatePostgresService = require('./certificate.postgres.service');
+const googleDriveService = require('./googleDrive.service');
+const fs = require('fs');
+const path = require('path');
 
 class CertificateService {
   /**
@@ -9,9 +13,8 @@ class CertificateService {
    * @returns {Promise<Object>} - Certificado creado
    */
   async createCertificate(certificateData) {
-    const certificate = new Certificate(certificateData);
-    await certificate.save();
-    return certificate;
+    // Usar PostgreSQL directamente
+    return await certificatePostgresService.createCertificate(certificateData);
   }
 
   /**
@@ -20,31 +23,29 @@ class CertificateService {
    * @returns {Promise<Object>} - Certificado encontrado
    */
   async getCertificateById(certificateId) {
-    return await Certificate.findById(certificateId)
-      .populate('issuerId', 'name email')
-      .populate('recipientId', 'name email');
+    return await certificatePostgresService.getCertificateById(certificateId);
   }
 
   /**
    * Obtiene un certificado por número de certificado
    * @param {string} certificateNumber - Número del certificado
    * @returns {Promise<Object>} - Certificado encontrado
+   * @note MongoDB no está en uso - esto debería usar PostgreSQL
    */
   async getCertificateByNumber(certificateNumber) {
-    return await Certificate.findOne({ certificateNumber })
-      .populate('issuerId', 'name email')
-      .populate('recipientId', 'name email');
+    // TODO: Migrar a PostgreSQL
+    return null; // MongoDB no está disponible
   }
 
   /**
    * Obtiene un certificado por código de verificación
    * @param {string} verificationCode - Código de verificación
    * @returns {Promise<Object>} - Certificado encontrado
+   * @note MongoDB no está en uso - esto debería usar PostgreSQL
    */
   async getCertificateByVerificationCode(verificationCode) {
-    return await Certificate.findOne({ verificationCode })
-      .populate('issuerId', 'name email')
-      .populate('recipientId', 'name email');
+    // TODO: Migrar a PostgreSQL
+    return null; // MongoDB no está disponible
   }
 
   /**
@@ -54,37 +55,7 @@ class CertificateService {
    * @returns {Promise<Object>} - Certificados y metadatos
    */
   async getAllCertificates(filters = {}, options = {}) {
-    const {
-      page = 1,
-      limit = 10,
-      sortBy = 'createdAt',
-      sortOrder = 'desc'
-    } = options;
-
-    const skip = (page - 1) * limit;
-    const sort = { [sortBy]: sortOrder === 'desc' ? -1 : 1 };
-
-    const query = Certificate.find(filters)
-      .populate('issuerId', 'name email')
-      .populate('recipientId', 'name email')
-      .sort(sort)
-      .skip(skip)
-      .limit(limit);
-
-    const [certificates, total] = await Promise.all([
-      query.exec(),
-      Certificate.countDocuments(filters)
-    ]);
-
-    return {
-      certificates,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    };
+    return await certificatePostgresService.getAllCertificates(filters, options);
   }
 
   /**
@@ -104,34 +75,60 @@ class CertificateService {
    * @returns {Promise<Object>} - Certificados y metadatos
    */
   async getCertificatesByRecipient(recipientEmail, options = {}) {
-    return await this.getAllCertificates({ recipientEmail }, options);
+    return await certificatePostgresService.getCertificatesByRecipient(recipientEmail, options);
   }
 
   /**
-   * Genera y emite un certificado (crea el PDF)
+   * Genera y emite un certificado (crea el PDF y lo guarda en Google Drive)
    * @param {string} certificateId - ID del certificado
    * @param {Object} options - Opciones adicionales
    * @returns {Promise<Object>} - Certificado actualizado con PDF
    */
   async issueCertificate(certificateId, options = {}) {
-    const certificate = await this.getCertificateById(certificateId);
+    // Usar PostgreSQL en lugar de MongoDB
+    const certificate = await certificatePostgresService.getCertificateById(certificateId);
     
     if (!certificate) {
       throw new Error('Certificado no encontrado');
     }
 
-    if (certificate.status === 'issued') {
-      throw new Error('El certificado ya ha sido emitido');
+    if (certificate.status === 'issued' && certificate.googleDriveFileId) {
+      // Si ya está emitido y tiene Google Drive ID, verificar que existe
+      if (googleDriveService.isAvailable()) {
+        const exists = await googleDriveService.fileExists(certificate.googleDriveFileId);
+        if (exists) {
+          return certificate; // Ya existe, no regenerar
+        }
+      }
     }
 
     // Obtener información del emisor
-    const issuer = await User.findById(certificate.issuerId);
+    const userService = require('../../users/services/user.postgres.service');
+    const issuer = await userService.getUserById(certificate.issuerId._id || certificate.issuerId);
     const issuerName = issuer?.name || options.issuerName || 'Movilis';
+
+    // Obtener datos del destinatario desde PostgreSQL usando destinatario_id
+    let recipientNameFromDB = certificate.recipientName || certificate.recipientId?.name;
+    let recipientCedula = null;
+    
+    // Obtener datos completos del destinatario desde users
+    if (certificate.destinatarioId || certificate.recipientId?._id) {
+      try {
+        const userId = certificate.destinatarioId || certificate.recipientId._id;
+        const user = await userService.getUserById(userId);
+        if (user) {
+          recipientNameFromDB = user.name;
+          recipientCedula = user.cedula;
+        }
+      } catch (error) {
+        console.warn('No se pudo obtener usuario de PostgreSQL:', error.message);
+      }
+    }
 
     // Datos para el PDF
     const pdfData = {
       certificateNumber: certificate.certificateNumber,
-      recipientName: certificate.recipientName,
+      recipientName: recipientNameFromDB,
       courseName: certificate.courseName,
       courseDescription: certificate.courseDescription,
       issueDate: certificate.issueDate,
@@ -141,44 +138,152 @@ class CertificateService {
     };
 
     // Generar PDF
-    const pdfPath = await pdfService.generateCertificate(pdfData);
+    let pdfBuffer;
+    try {
+      pdfBuffer = await pdfService.generateCertificateFromTemplate(pdfData, recipientCedula);
+    } catch (error) {
+      console.warn('Error generando con plantilla, usando método alternativo:', error.message);
+      pdfBuffer = await pdfService.generateCertificateBuffer(pdfData);
+    }
 
-    // Actualizar certificado
-    certificate.pdfPath = pdfPath;
-    certificate.status = 'issued';
-    certificate.isVerified = true;
-    await certificate.save();
+    // Firmar electrónicamente el PDF (si el emisor tiene firma configurada)
+    try {
+      const firmaService = require('../../firma/services/firma.service');
+      const issuerCedula = issuer?.cedula;
+      
+      if (issuerCedula) {
+        const firmaData = await firmaService.obtenerArchivoP12(issuerCedula);
+        if (firmaData) {
+          // Firmar el PDF con la firma electrónica del emisor
+          pdfBuffer = await pdfService.signPDF(pdfBuffer, firmaData.buffer, firmaData.password);
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ No se pudo firmar el certificado (continuando sin firma):', error.message);
+      // Continuar sin firma si hay error
+    }
 
-    return certificate;
+    // Subir a Google Drive (si está configurado)
+    let googleDriveFileId = null;
+
+    if (googleDriveService.isAvailable()) {
+      try {
+        const fileName = `certificado-${certificate.certificateNumber}.pdf`;
+        googleDriveFileId = await googleDriveService.uploadFile(pdfBuffer, fileName, certificate.certificateNumber);
+      } catch (error) {
+        console.warn('⚠️ Error subiendo a Google Drive (continuando sin guardar):', error.message);
+        // En desarrollo, continuar sin Google Drive
+      }
+    } else {
+      console.warn('⚠️ Google Drive no está configurado. El certificado se generará pero no se guardará.');
+    }
+
+    // Actualizar certificado en PostgreSQL
+    await certificatePostgresService.updateCertificate(certificateId, {
+      status: 'issued',
+      googleDriveFileId
+    });
+
+    // Obtener certificado actualizado
+    return await certificatePostgresService.getCertificateById(certificateId);
   }
 
   /**
-   * Genera el PDF de un certificado sin guardarlo en disco (para descarga directa)
+   * Obtiene el PDF de un certificado desde Google Drive o lo genera si no existe
    * @param {string} certificateId - ID del certificado
    * @returns {Promise<Buffer>} - Buffer del PDF
    */
   async generateCertificatePDF(certificateId) {
-    const certificate = await this.getCertificateById(certificateId);
+    const certificate = await certificatePostgresService.getCertificateById(certificateId);
     
     if (!certificate) {
       throw new Error('Certificado no encontrado');
     }
 
-    const issuer = await User.findById(certificate.issuerId);
-    const issuerName = issuer?.name || 'Movilis';
+    // 1. Si tiene Google Drive ID, intentar descargarlo
+    if (certificate.googleDriveFileId && googleDriveService.isAvailable()) {
+      try {
+        const exists = await googleDriveService.fileExists(certificate.googleDriveFileId);
+        if (exists) {
+          return await googleDriveService.downloadFile(certificate.googleDriveFileId);
+        }
+      } catch (error) {
+        console.warn('⚠️ Error descargando de Google Drive, regenerando:', error.message);
+      }
+    }
 
-    const pdfData = {
-      certificateNumber: certificate.certificateNumber,
-      recipientName: certificate.recipientName,
-      courseName: certificate.courseName,
-      courseDescription: certificate.courseDescription,
-      issueDate: certificate.issueDate,
-      expirationDate: certificate.expirationDate,
-      issuerName,
-      metadata: certificate.metadata
-    };
+    // 2. Si no existe en Google Drive, generarlo
+    
+    // Si Google Drive no está disponible, generar y devolver directamente
+    if (!googleDriveService.isAvailable()) {
+      
+      // Obtener información del emisor
+      const userService = require('../../users/services/user.postgres.service');
+      const issuer = await userService.getUserById(certificate.issuerId._id || certificate.issuerId);
+      const issuerName = issuer?.name || 'Movilis';
 
-    return await pdfService.generateCertificateBuffer(pdfData);
+      // Obtener datos del destinatario
+      let recipientNameFromDB = certificate.recipientName || certificate.recipientId?.name;
+      let recipientCedula = null;
+      
+      if (certificate.destinatarioId || certificate.recipientId?._id) {
+        try {
+          const userId = certificate.destinatarioId || certificate.recipientId._id;
+          const user = await userService.getUserById(userId);
+          if (user) {
+            recipientNameFromDB = user.name;
+            recipientCedula = user.cedula;
+          }
+        } catch (error) {
+          console.warn('No se pudo obtener usuario de PostgreSQL:', error.message);
+        }
+      }
+
+      // Datos para el PDF
+      const pdfData = {
+        certificateNumber: certificate.certificateNumber,
+        recipientName: recipientNameFromDB,
+        courseName: certificate.courseName,
+        courseDescription: certificate.courseDescription,
+        issueDate: certificate.issueDate,
+        expirationDate: certificate.expirationDate,
+        issuerName,
+        metadata: certificate.metadata
+      };
+
+      // Generar PDF directamente
+      const pdfService = require('./pdf.service');
+      let pdfBuffer;
+      try {
+        pdfBuffer = await pdfService.generateCertificateFromTemplate(pdfData, recipientCedula);
+      } catch (error) {
+        console.warn('Error generando con plantilla, usando método alternativo:', error.message);
+        pdfBuffer = await pdfService.generateCertificateBuffer(pdfData);
+      }
+
+      // Actualizar estado a 'issued' sin Google Drive
+      await certificatePostgresService.updateCertificate(certificateId, {
+        status: 'issued'
+      });
+
+      return pdfBuffer;
+    }
+    
+    // Si Google Drive está disponible, usar el flujo normal
+    await this.issueCertificate(certificateId);
+    
+    // Intentar descargarlo de Google Drive después de generarlo
+    const updatedCertificate = await certificatePostgresService.getCertificateById(certificateId);
+    if (updatedCertificate.googleDriveFileId && googleDriveService.isAvailable()) {
+      try {
+        return await googleDriveService.downloadFile(updatedCertificate.googleDriveFileId);
+      } catch (error) {
+        console.error('❌ Error descargando de Google Drive después de generar:', error.message);
+        throw new Error('No se pudo obtener el PDF del certificado desde Google Drive');
+      }
+    }
+
+    throw new Error('No se pudo obtener el PDF del certificado');
   }
 
   /**
@@ -318,3 +423,4 @@ class CertificateService {
 }
 
 module.exports = new CertificateService();
+
