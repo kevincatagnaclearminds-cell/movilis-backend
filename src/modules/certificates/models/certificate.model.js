@@ -75,11 +75,10 @@ const certificateSchema = new mongoose.Schema({
 });
 
 // Índices para búsquedas rápidas
-certificateSchema.index({ certificateNumber: 1 });
+// Nota: certificateNumber y verificationCode ya tienen índices únicos por 'unique: true'
 certificateSchema.index({ recipientEmail: 1 });
 certificateSchema.index({ issuerId: 1 });
 certificateSchema.index({ status: 1 });
-certificateSchema.index({ verificationCode: 1 });
 
 // Método para verificar si el certificado está expirado
 certificateSchema.methods.isExpired = function() {

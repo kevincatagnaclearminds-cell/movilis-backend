@@ -26,6 +26,7 @@ class AuthService {
         id: user._id,
         cedula: user.cedula,
         name: user.name,
+        email: user.email || null,
         role: user.role
       },
       token
