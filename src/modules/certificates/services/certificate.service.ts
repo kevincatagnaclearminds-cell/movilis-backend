@@ -173,18 +173,9 @@ class CertificateService {
       pdfBuffer = await pdfService.generateCertificateBuffer(pdfData);
     }
 
-    // Firmar electrónicamente el PDF (si el emisor tiene firma configurada)
+    // Firmar electrónicamente el PDF (usando el certificado configurado en .env)
     try {
-      const firmaService = require('../../firma/services/firma.service');
-      const issuerCedula = issuer?.cedula;
-      
-      if (issuerCedula) {
-        const firmaData = await firmaService.obtenerArchivoP12(issuerCedula);
-        if (firmaData) {
-          // Firmar el PDF con la firma electrónica del emisor
-          pdfBuffer = await pdfService.signPDF(pdfBuffer, firmaData.buffer, firmaData.password);
-        }
-      }
+      pdfBuffer = await pdfService.signPDF(pdfBuffer, Buffer.alloc(0), '');
     } catch (error) {
       const err = error as Error;
       console.warn('⚠️ No se pudo firmar el certificado (continuando sin firma):', err.message);
@@ -312,6 +303,14 @@ class CertificateService {
         const err = error as Error;
         console.warn('Error generando con plantilla, usando método alternativo:', err.message);
         pdfBuffer = await pdfService.generateCertificateBuffer(pdfData);
+      }
+
+      // Intentar firmar el PDF con el certificado configurado en .env
+      try {
+        pdfBuffer = await pdfService.signPDF(pdfBuffer, Buffer.alloc(0), '');
+      } catch (error) {
+        const err = error as Error;
+        console.warn('⚠️ No se pudo firmar el certificado (continuando sin firma):', err.message);
       }
 
       // Actualizar estado a 'issued' sin Google Drive

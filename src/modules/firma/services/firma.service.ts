@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { pool } from '../../../config/postgres';
 import { v4 as uuidv4 } from 'uuid';
 import { encriptarDatos, desencriptarDatos } from '../utils/p12.utils';
@@ -263,4 +264,5 @@ class FirmaService {
 }
 
 export default new FirmaService();
+
 

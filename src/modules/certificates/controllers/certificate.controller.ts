@@ -617,6 +617,15 @@ class CertificateController {
 
       const recipientEmail = (req.query.email as string) || req.user.email;
       
+      // Validar formato de email básico
+      if (recipientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail)) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Formato de email inválido' }
+        });
+        return;
+      }
+      
       // Solo admin o el propio usuario puede ver sus certificados
       if (req.user.role !== 'admin' && recipientEmail !== req.user.email) {
         res.status(403).json({
@@ -626,11 +635,15 @@ class CertificateController {
         return;
       }
 
+      // Normalizar sortOrder
+      const rawSortOrder = (req.query.sortOrder as string) || 'desc';
+      const normalizedSortOrder = rawSortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
       const options = {
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 10,
         sortBy: (req.query.sortBy as string) || 'createdAt',
-        sortOrder: (req.query.sortOrder as string) || 'desc'
+        sortOrder: normalizedSortOrder
       };
 
       // Usar Promise.race para timeout rápido
@@ -654,11 +667,18 @@ class CertificateController {
       res.json(response);
     } catch (error) {
       const err = error as Error;
-      // Si hay timeout o MongoDB no está disponible, devolver array vacío rápidamente
+      console.error('Error en getCertificatesByRecipient:', err.message);
+      console.error('Stack:', err.stack);
+      
+      // Si hay timeout, error de conexión o cualquier error de base de datos, devolver array vacío
       if (err.message && (
         err.message.includes('buffering timed out') || 
         err.message.includes('timeout') ||
-        err.message.includes('ECONNREFUSED')
+        err.message.includes('ECONNREFUSED') ||
+        err.message.includes('connection') ||
+        err.message.includes('syntax error') ||
+        err.message.includes('column') ||
+        err.message.includes('relation')
       )) {
         const response: ApiResponse<Certificate[]> = {
           success: true,

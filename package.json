@@ -2,7 +2,7 @@
   "name": "movilis-backend",
   "version": "1.0.0",
   "description": "Backend modular para emisión de certificados",
-  "main": "dist/index.js",
+  "main": "dist/",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
@@ -19,6 +19,10 @@
   "license": "ISC",
   "dependencies": {
     "@btielen/pdf-lib-fontkit": "^1.0.0",
+    "@signpdf/placeholder-pdf-lib": "^3.2.6",
+    "@signpdf/placeholder-plain": "^3.2.5",
+    "@signpdf/signer-p12": "^3.2.4",
+    "@signpdf/signpdf": "^3.2.5",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -32,6 +36,7 @@
     "multer": "^2.0.2",
     "node-forge": "^1.3.3",
     "pdf-lib": "^1.17.1",
+    "pdf-signer": "^1.1.4",
     "pdfkit": "^0.14.0",
     "pg": "^8.16.3",
     "uuid": "^9.0.1"
@@ -43,7 +48,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
-    "@types/node": "^24.10.1",
+    "@types/node": "^24.10.2",
     "@types/node-forge": "^1.3.14",
     "@types/pdfkit": "^0.17.4",
     "@types/pg": "^8.15.6",

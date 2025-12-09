@@ -97,7 +97,7 @@ export function parsearP12(archivoBuffer: Buffer, password: string): ParseResult
 /**
  * Extraer campo del subject o issuer del certificado
  */
-function extraerCampo(entity: forge.pki.Name, campos: string[]): string | null {
+function extraerCampo(entity: any, campos: string[]): string | null {
   for (const campo of campos) {
     const field = entity.getField(campo);
     if (field && field.value) {
@@ -156,4 +156,5 @@ export function validarTamano(size: number): boolean {
   const maxSize = 5 * 1024 * 1024; // 5MB
   return size <= maxSize;
 }
+
 

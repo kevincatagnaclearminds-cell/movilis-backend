@@ -29,3 +29,4 @@ Para completar la migración, necesitas convertir los archivos restantes de `.js
 3. **Imports**: Cambia `require()` por `import` y `module.exports` por `export default` o `export`
 4. **Testing**: Prueba cada módulo después de convertirlo
 
+

@@ -25,3 +25,4 @@ router.get('/verify', authenticate, authController.verify);
 
 export default router;
 
+

@@ -85,3 +85,4 @@ export function calculateCertificateStatus(certificate: {
   return certificate.status || 'draft';
 }
 
+

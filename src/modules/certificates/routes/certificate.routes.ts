@@ -167,6 +167,12 @@ router.get(
 );
 
 router.get(
+  '/recipient',
+  queryValidation,
+  certificateController.getCertificatesByRecipient
+);
+
+router.get(
   '/:id',
   [
     param('id')
@@ -281,11 +287,6 @@ router.get(
   certificateController.getStatistics
 );
 
-router.get(
-  '/recipient',
-  queryValidation,
-  certificateController.getCertificatesByRecipient
-);
-
 export default router;
+
 

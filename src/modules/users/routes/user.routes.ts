@@ -49,3 +49,4 @@ router.delete('/:id', authorize('admin'), userController.deleteUser);
 
 export default router;
 
+
