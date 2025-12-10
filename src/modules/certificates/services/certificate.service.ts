@@ -173,9 +173,15 @@ class CertificateService {
       pdfBuffer = await pdfService.generateCertificateBuffer(pdfData);
     }
 
-    // Firmar electrónicamente el PDF (usando el certificado configurado en .env)
+    // Firmar electrónicamente el PDF
+    // Usar SOLO variables de entorno (.env) - P12_PATH y P12_PASSWORD
     try {
-      pdfBuffer = await pdfService.signPDF(pdfBuffer, Buffer.alloc(0), '');
+      // signPDF usará automáticamente las variables de entorno P12_PATH y P12_PASSWORD
+      pdfBuffer = await pdfService.signPDF(
+        pdfBuffer, 
+        Buffer.alloc(0),  // No se pasa certificado como parámetro
+        ''                // No se pasa password como parámetro
+      );
     } catch (error) {
       const err = error as Error;
       console.warn('⚠️ No se pudo firmar el certificado (continuando sin firma):', err.message);
@@ -305,9 +311,15 @@ class CertificateService {
         pdfBuffer = await pdfService.generateCertificateBuffer(pdfData);
       }
 
-      // Intentar firmar el PDF con el certificado configurado en .env
+      // Intentar firmar el PDF
+      // Usar SOLO variables de entorno (.env) - P12_PATH y P12_PASSWORD
       try {
-        pdfBuffer = await pdfService.signPDF(pdfBuffer, Buffer.alloc(0), '');
+        // signPDF usará automáticamente las variables de entorno P12_PATH y P12_PASSWORD
+        pdfBuffer = await pdfService.signPDF(
+          pdfBuffer, 
+          Buffer.alloc(0),  // No se pasa certificado como parámetro
+          ''                // No se pasa password como parámetro
+        );
       } catch (error) {
         const err = error as Error;
         console.warn('⚠️ No se pudo firmar el certificado (continuando sin firma):', err.message);

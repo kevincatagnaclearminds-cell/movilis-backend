@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model certificados {
+  id                                        Int                     @id @default(autoincrement())
+  numero_certificado                        String                  @unique @db.VarChar(50)
+  codigo_verificacion                       String                  @unique @db.VarChar(100)
+  nombre_curso                              String                  @db.VarChar(255)
+  institucion                               String                  @db.VarChar(255)
+  fecha_emision                             DateTime                @default(dbgenerated("CURRENT_DATE")) @db.Date
+  destinatario_id                           String                  @db.Uuid
+  emisor_id                                 String                  @db.Uuid
+  fecha_expiracion                          DateTime?               @db.Date
+  estado                                    String                  @default("draft") @db.VarChar(20)
+  drive_file_id                             String?                 @unique @db.VarChar(255)
+  creado_en                                 DateTime                @default(now()) @db.Timestamp(6)
+  users_certificados_destinatario_idTousers users                   @relation("certificados_destinatario_idTousers", fields: [destinatario_id], references: [id], onUpdate: NoAction, map: "fk_destinatario")
+  users_certificados_emisor_idTousers       users                   @relation("certificados_emisor_idTousers", fields: [emisor_id], references: [id], onUpdate: NoAction, map: "fk_emisor")
+  certificados_usuarios                     certificados_usuarios[]
+
+  @@index([destinatario_id, estado], map: "idx_certificados_destinatario_estado")
+  @@index([destinatario_id], map: "idx_certificados_destinatario_id")
+  @@index([emisor_id], map: "idx_certificados_emisor_id")
+  @@index([estado], map: "idx_certificados_estado")
+  @@index([fecha_emision(sort: Desc)], map: "idx_certificados_fecha_emision")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model certificados_usuarios {
+  id             Int          @id @default(autoincrement())
+  certificado_id Int
+  usuario_id     String       @db.Uuid
+  asignado_en    DateTime     @default(now()) @db.Timestamp(6)
+  asignado_por   String?      @db.Uuid
+  certificados   certificados @relation(fields: [certificado_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_certificado")
+  users          users        @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_usuario")
+
+  @@unique([certificado_id, usuario_id], map: "uq_certificado_usuario")
+  @@index([certificado_id], map: "idx_certificados_usuarios_certificado_id")
+  @@index([certificado_id, usuario_id], map: "idx_certificados_usuarios_compuesto")
+  @@index([usuario_id], map: "idx_certificados_usuarios_usuario_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                                               String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  cedula                                           String                  @unique @db.VarChar(20)
+  name                                             String                  @db.VarChar(255)
+  email                                            String?                 @db.VarChar(255)
+  role                                             String?                 @default("user") @db.VarChar(20)
+  is_active                                        Boolean?                @default(true)
+  created_at                                       DateTime?               @default(now()) @db.Timestamp(6)
+  updated_at                                       DateTime?               @default(now()) @db.Timestamp(6)
+  certificados_certificados_destinatario_idTousers certificados[]          @relation("certificados_destinatario_idTousers")
+  certificados_certificados_emisor_idTousers       certificados[]          @relation("certificados_emisor_idTousers")
+  certificados_usuarios                            certificados_usuarios[]
+
+  @@index([cedula], map: "idx_users_cedula")
+}

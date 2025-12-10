@@ -1,9 +1,10 @@
 /**
  * Script para inicializar la tabla de firmas en PostgreSQL
- * Ejecutar con: node src/scripts/initFirmasTable.js
+ * Ejecutar con: ts-node src/scripts/initFirmasTable.ts
  */
 
-const { pool } = require('../config/postgres');
+import { QueryResult } from 'pg';
+import { pool } from '../config/postgres';
 
 const createTableSQL = `
 CREATE TABLE IF NOT EXISTS firmas (
@@ -29,36 +30,39 @@ CREATE INDEX IF NOT EXISTS idx_firmas_usuario_cedula ON firmas(usuario_cedula);
 CREATE INDEX IF NOT EXISTS idx_firmas_estado ON firmas(estado);
 `;
 
-async function initFirmasTable() {
+type ColumnInfo = { column_name: string; data_type: string };
+
+async function initFirmasTable(): Promise<void> {
   try {
     console.log('🔄 Creando tabla de firmas...');
-    
+
     await pool.query(createTableSQL);
     console.log('✅ Tabla "firmas" creada correctamente');
-    
+
     await pool.query(createIndexesSQL);
     console.log('✅ Índices creados correctamente');
-    
+
     // Verificar que la tabla existe
-    const result = await pool.query(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
+    const result: QueryResult<ColumnInfo> = await pool.query(`
+      SELECT column_name, data_type
+      FROM information_schema.columns
       WHERE table_name = 'firmas'
       ORDER BY ordinal_position
     `);
-    
+
     console.log('\n📋 Estructura de la tabla:');
-    result.rows.forEach(col => {
+    result.rows.forEach((col) => {
       console.log(`   - ${col.column_name}: ${col.data_type}`);
     });
-    
+
     console.log('\n✅ ¡Tabla de firmas lista para usar!');
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error creando tabla:', error.message);
+    const err = error as Error;
+    console.error('❌ Error creando tabla:', err.message);
     process.exit(1);
   }
 }
 
-initFirmasTable();
+void initFirmasTable();
 

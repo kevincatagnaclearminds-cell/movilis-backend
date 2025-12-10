@@ -3,7 +3,11 @@ import { PDFDocument as PDFLibDocument, rgb, StandardFonts, PDFFont, PDFPage } f
 import fs from 'fs';
 import path from 'path';
 import forge from 'node-forge';
+import * as dotenv from 'dotenv';
 import userService from '../../users/services/user.postgres.service';
+
+// Cargar variables de entorno (.env) para obtener P12_PATH y P12_PASSWORD
+dotenv.config();
 
 interface CertificateData {
   certificateNumber: string;
@@ -509,48 +513,129 @@ class PDFService {
 
   /**
    * Firma electrónicamente un PDF usando un certificado .p12
+   * Prioriza variables de entorno, luego parámetros, luego base de datos
    */
-  async signPDF(pdfBuffer: Buffer, _p12Buffer: Buffer, _password: string): Promise<Buffer> {
+  async signPDF(pdfBuffer: Buffer, p12Buffer: Buffer, password: string): Promise<Buffer> {
     try {
-      // Leer configuración desde variables de entorno (modo prueba)
+      let p12FileBuffer: Buffer | null = null;
+      let p12Password: string | null = null;
+
+      // 1. Prioridad: Variables de entorno (configuración principal)
       const p12Path = process.env.P12_PATH;
-      const p12Password = process.env.P12_PASSWORD;
+      const envPassword = process.env.P12_PASSWORD;
 
-      if (!p12Path || !p12Password) {
-        console.warn('⚠️ P12_PATH o P12_PASSWORD no configurados. Se devuelve el PDF sin firmar.');
-        return pdfBuffer;
+      if (p12Path && envPassword) {
+        if (fs.existsSync(p12Path)) {
+          p12FileBuffer = fs.readFileSync(p12Path);
+          p12Password = envPassword;
+          console.log('🔏 [signPDF] Usando certificado desde variables de entorno (.env)');
+        } else {
+          console.warn('⚠️ Archivo .p12 no encontrado en la ruta configurada');
+        }
       }
 
-      if (!fs.existsSync(p12Path)) {
-        console.warn('⚠️ Archivo .p12 no encontrado en la ruta configurada:', p12Path);
-        return pdfBuffer;
+      // 2. Fallback: Parámetros proporcionados (si no hay variables de entorno)
+      if (!p12FileBuffer || !p12Password) {
+        if (p12Buffer && p12Buffer.length > 0 && password) {
+          p12FileBuffer = p12Buffer;
+          p12Password = password;
+          console.log('🔏 [signPDF] Usando certificado desde parámetros');
+        }
       }
 
-      const p12FileBuffer = fs.readFileSync(p12Path);
+      // 3. Si no hay certificado disponible, detener con error claro
+      if (!p12FileBuffer || !p12Password) {
+        throw new Error('No se encontró certificado P12: revise P12_PATH/P12_PASSWORD o provea buffer y password.');
+      }
 
-      // Cargar pdf-signer en tiempo de ejecución
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { sign } = require('pdf-signer');
+      // Usar @signpdf/signpdf y @signpdf/signer-p12
+      const signpdf = require('@signpdf/signpdf').default;
+      const { P12Signer } = require('@signpdf/signer-p12');
+      
+      console.log('🔏 [signPDF] Iniciando proceso de firma...');
 
-      console.log('🔏 [signPDF] Firmando PDF con pdf-signer...');
-
-      const signedPdf: Buffer = await sign(pdfBuffer, p12FileBuffer, p12Password, {
-        reason: 'Firmado electrónicamente por Movilis',
-        email: 'soporte@movilis.com',
-        name: 'Movilis',
-        location: 'Ecuador',
-        // signingDate se puede omitir para usar la fecha actual
+      // Crear el signer con el certificado P12
+      console.log('🔏 [signPDF] Creando signer con certificado P12...');
+      const signer = new P12Signer(p12FileBuffer, {
+        passphrase: p12Password
       });
+      console.log('✅ Signer creado correctamente');
 
-      console.log('✅ [signPDF] PDF firmado correctamente con pdf-signer.');
+      // Intentar usar placeholder-pdf-lib primero (para PDFs generados con pdf-lib)
+      // Si falla, intentar con placeholder-plain (para PDFs normales)
+      let pdfWithPlaceholder: Buffer;
+      
+      try {
+        console.log('🔏 [signPDF] Intentando agregar placeholder con pdf-lib...');
+        // Intentar cargar el PDF con pdf-lib para usar placeholder-pdf-lib
+        const pdfDoc = await PDFLibDocument.load(pdfBuffer);
+        const { pdflibAddPlaceholder } = require('@signpdf/placeholder-pdf-lib');
+        
+        // Agregar placeholder usando pdf-lib
+        // Aumentar signatureLength para certificados grandes (por defecto es 8192)
+        // Usamos 20000 para dar margen suficiente
+        pdflibAddPlaceholder({
+          pdfDoc,
+          reason: 'Firmado electrónicamente por Movilis',
+          contactInfo: 'soporte@movilis.com',
+          name: 'Movilis',
+          location: 'Ecuador',
+          signatureLength: 20000 // Aumentar el tamaño del placeholder para certificados grandes
+        });
+        
+        // Guardar el PDF con el placeholder
+        const pdfBytes = await pdfDoc.save();
+        pdfWithPlaceholder = Buffer.from(pdfBytes);
+        
+        console.log('✅ Placeholder agregado usando @signpdf/placeholder-pdf-lib');
+      } catch (placeholderError) {
+        // Si falla con pdf-lib, intentar con placeholder-plain
+        const err = placeholderError as Error;
+        console.log(`⚠️ No se pudo usar placeholder-pdf-lib (${err.message}), intentando con placeholder-plain...`);
+        
+        try {
+          const { plainAddPlaceholder } = require('@signpdf/placeholder-plain');
+          pdfWithPlaceholder = plainAddPlaceholder({
+            pdfBuffer: pdfBuffer,
+            reason: 'Firmado electrónicamente por Movilis',
+            contactInfo: 'soporte@movilis.com',
+            name: 'Movilis',
+            location: 'Ecuador',
+            signatureLength: 20000 // Aumentar el tamaño del placeholder para certificados grandes
+          });
+          console.log('✅ Placeholder agregado usando @signpdf/placeholder-plain');
+        } catch (plainError) {
+          const plainErr = plainError as Error;
+          console.error('❌ Error agregando placeholder con ambos métodos:', plainErr.message);
+          console.error('Stack:', plainErr.stack);
+          throw new Error(`No se pudo agregar placeholder al PDF: ${plainErr.message}`);
+        }
+      }
 
-      return signedPdf;
+      // Verificar que el placeholder se agregó correctamente
+      if (!pdfWithPlaceholder || pdfWithPlaceholder.length === 0) {
+        throw new Error('El PDF con placeholder está vacío');
+      }
+      console.log(`✅ PDF con placeholder listo (tamaño: ${pdfWithPlaceholder.length} bytes)`);
+
+      // Firmar el PDF (sign solo acepta pdfBuffer, signer y opcionalmente signingTime)
+      console.log('🔏 [signPDF] Firmando PDF...');
+      const signedPdf = await signpdf.sign(pdfWithPlaceholder, signer);
+
+      if (!signedPdf || signedPdf.length === 0) {
+        throw new Error('El PDF firmado está vacío');
+      }
+
+      console.log(`✅ [signPDF] PDF firmado correctamente (tamaño: ${signedPdf.length} bytes)`);
+
+      // Convertir a Buffer si es necesario
+      return Buffer.isBuffer(signedPdf) ? signedPdf : Buffer.from(signedPdf);
 
     } catch (error) {
       const err = error as Error & { stack?: string };
-      console.error('Error firmando PDF con pdf-signer:', err.message);
+      console.error('❌ Error firmando PDF:', err.message);
       if (err.stack) {
-        console.error('Stack de error en signPDF (pdf-signer):', err.stack);
+        console.error('Stack de error en signPDF:', err.stack);
       }
       // En caso de error, devolver el PDF original sin firmar para no romper el flujo
       return pdfBuffer;
