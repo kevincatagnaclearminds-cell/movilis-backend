@@ -527,13 +527,30 @@ class PDFService {
 
       if (p12Base64 && envPassword) {
         try {
+          // Limpiar el base64: eliminar espacios, saltos de línea, etc.
+          const cleanBase64 = p12Base64.replace(/\s/g, '').trim();
+          
+          // Validar que el base64 no esté vacío
+          if (!cleanBase64 || cleanBase64.length < 100) {
+            throw new Error('P12_BASE64 parece estar vacío o incompleto');
+          }
+          
           // Decodificar base64 a Buffer
-          p12FileBuffer = Buffer.from(p12Base64, 'base64');
+          p12FileBuffer = Buffer.from(cleanBase64, 'base64');
+          
+          // Validar que el buffer tenga un tamaño razonable (un P12 típico tiene al menos 1KB)
+          if (!p12FileBuffer || p12FileBuffer.length < 1024) {
+            throw new Error(`P12_BASE64 decodificado es muy pequeño (${p12FileBuffer?.length || 0} bytes). Un certificado P12 válido debe tener al menos 1KB`);
+          }
+          
           p12Password = envPassword;
-          console.log('🔏 [signPDF] Usando certificado desde P12_BASE64 (variables de entorno)');
+          console.log(`🔏 [signPDF] Usando certificado desde P12_BASE64 (variables de entorno) - Tamaño: ${p12FileBuffer.length} bytes`);
         } catch (error) {
           const err = error as Error;
-          console.warn('⚠️ Error decodificando P12_BASE64:', err.message);
+          console.error('❌ Error decodificando P12_BASE64:', err.message);
+          console.error('   Longitud del base64:', p12Base64.length);
+          // No continuar si hay error con P12_BASE64
+          throw err;
         }
       }
 
@@ -573,10 +590,24 @@ class PDFService {
 
       // Crear el signer con el certificado P12
       console.log('🔏 [signPDF] Creando signer con certificado P12...');
-      const signer = new P12Signer(p12FileBuffer, {
-        passphrase: p12Password
-      });
-      console.log('✅ Signer creado correctamente');
+      console.log(`   - Tamaño del certificado: ${p12FileBuffer.length} bytes`);
+      console.log(`   - Password proporcionada: ${p12Password ? 'Sí' : 'No'} (longitud: ${p12Password?.length || 0})`);
+      
+      let signer;
+      try {
+        signer = new P12Signer(p12FileBuffer, {
+          passphrase: p12Password
+        });
+        console.log('✅ Signer creado correctamente');
+      } catch (signerError) {
+        const err = signerError as Error;
+        console.error('❌ Error creando P12Signer:', err.message);
+        console.error('   Esto puede indicar:');
+        console.error('   1. El certificado P12 está corrupto o incompleto');
+        console.error('   2. La contraseña (P12_PASSWORD) es incorrecta');
+        console.error('   3. El base64 del certificado está truncado o mal formateado');
+        throw new Error(`No se pudo crear el signer P12: ${err.message}. Verifique P12_BASE64 y P12_PASSWORD.`);
+      }
 
       // Intentar usar placeholder-pdf-lib primero (para PDFs generados con pdf-lib)
       // Si falla, intentar con placeholder-plain (para PDFs normales)
