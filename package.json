@@ -10,6 +10,7 @@
     "dev:watch": "nodemon --watch src --exec ts-node src/index.ts",
     "init:firmas": "ts-node src/scripts/initFirmasTable.ts",
     "test": "jest",
+    "test:connection": "ts-node scripts/test-connection.ts",
     "vercel-build": "npm run build",
     "convert-p12": "node scripts/convert-p12-to-base64.js"
   },
