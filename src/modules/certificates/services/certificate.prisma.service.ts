@@ -707,7 +707,7 @@ class CertificatePrismaService {
         }
       });
       
-      return certificadosUsuarios.map((cu: certificados_usuarios & { users: { id: string; name: string; email: string | null; cedula: string } }) => ({
+      return certificadosUsuarios.map((cu: certificados_usuarios & { users: { id: string; name: string; email: string | null; cedula: string; role: string | null; is_active: boolean | null } }) => ({
         _id: cu.users.id,
         id: cu.users.id,
         cedula: cu.users.cedula,
