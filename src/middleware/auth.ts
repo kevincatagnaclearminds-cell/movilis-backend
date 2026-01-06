@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import config from '../config/config';
 import { AuthRequest, User } from '../types';
-import userService from '../modules/users/services/user.postgres.service';
+import userService from '../modules/users/services/user.prisma.service';
 
 interface JwtPayload {
   userId: string;

@@ -1,6 +1,6 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
 import config from '../../../config/config';
-import userService from '../../users/services/user.postgres.service';
+import userService from '../../users/services/user.prisma.service';
 import { User } from '../../../types';
 
 interface AuthResponse {
@@ -15,6 +15,7 @@ interface AuthResponse {
     role?: 'admin' | 'user' | 'issuer';
   };
   token: string;
+  redirectTo?: string;
 }
 
 class AuthService {
@@ -42,6 +43,16 @@ class AuthService {
     const user = await userService.createUser(userData);
     const token = this.generateToken(user._id);
 
+    // Determinar redirección según el rol
+    let redirectTo: string | undefined;
+    if (user.role === 'admin') {
+      redirectTo = '/admin/dashboard';
+    } else if (user.role === 'issuer') {
+      redirectTo = '/issuer/dashboard';
+    } else {
+      redirectTo = '/user/dashboard';
+    }
+
     return {
       user: {
         id: user._id,
@@ -50,7 +61,8 @@ class AuthService {
         email: user.email || null,
         role: user.role
       },
-      token
+      token,
+      redirectTo
     };
   }
 
@@ -71,6 +83,16 @@ class AuthService {
     // Generar token
     const token = this.generateToken(user._id);
 
+    // Determinar redirección según el rol
+    let redirectTo: string | undefined;
+    if (user.role === 'admin') {
+      redirectTo = '/admin/dashboard';
+    } else if (user.role === 'issuer') {
+      redirectTo = '/issuer/dashboard';
+    } else {
+      redirectTo = '/user/dashboard';
+    }
+
     return {
       user: {
         id: user._id,
@@ -82,7 +104,8 @@ class AuthService {
         correo: user.email,
         role: user.role
       },
-      token
+      token,
+      redirectTo
     };
   }
 }

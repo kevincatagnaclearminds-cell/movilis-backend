@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import forge from 'node-forge';
 import * as dotenv from 'dotenv';
-import userService from '../../users/services/user.postgres.service';
+import userService from '../../users/services/user.prisma.service';
 
 // Cargar variables de entorno (.env) para obtener P12_PATH y P12_PASSWORD
 dotenv.config();
@@ -521,16 +521,33 @@ class PDFService {
       let p12Password: string | null = null;
 
       // 1. Prioridad: Variables de entorno (configuración principal)
-      const p12Path = process.env.P12_PATH;
+      // Opción A: P12_BASE64 (archivo completo en base64) - MEJOR para Vercel
+      const p12Base64 = process.env.P12_BASE64;
       const envPassword = process.env.P12_PASSWORD;
 
-      if (p12Path && envPassword) {
-        if (fs.existsSync(p12Path)) {
-          p12FileBuffer = fs.readFileSync(p12Path);
+      if (p12Base64 && envPassword) {
+        try {
+          // Decodificar base64 a Buffer
+          p12FileBuffer = Buffer.from(p12Base64, 'base64');
           p12Password = envPassword;
-          console.log('🔏 [signPDF] Usando certificado desde variables de entorno (.env)');
-        } else {
-          console.warn('⚠️ Archivo .p12 no encontrado en la ruta configurada');
+          console.log('🔏 [signPDF] Usando certificado desde P12_BASE64 (variables de entorno)');
+        } catch (error) {
+          const err = error as Error;
+          console.warn('⚠️ Error decodificando P12_BASE64:', err.message);
+        }
+      }
+
+      // Opción B: P12_PATH (ruta al archivo) - Para desarrollo local
+      if (!p12FileBuffer || !p12Password) {
+        const p12Path = process.env.P12_PATH;
+        if (p12Path && envPassword) {
+          if (fs.existsSync(p12Path)) {
+            p12FileBuffer = fs.readFileSync(p12Path);
+            p12Password = envPassword;
+            console.log('🔏 [signPDF] Usando certificado desde P12_PATH (variables de entorno)');
+          } else {
+            console.warn('⚠️ Archivo .p12 no encontrado en la ruta configurada:', p12Path);
+          }
         }
       }
 

@@ -34,5 +34,10 @@ coverage/
 # Uploads
 uploads/
 
+# Archivos temporales y sensibles
+p12_base64_only.txt
+p12_base64_output.txt
+*.p12
+*.pfx
 
 /src/generated/prisma

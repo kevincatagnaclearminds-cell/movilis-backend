@@ -1,39 +1,34 @@
-import { Pool, PoolClient } from 'pg';
+import prisma from './prisma';
 
-// Configuración de conexión a PostgreSQL
-const pool = new Pool({
-  host: process.env.PG_HOST || 'localhost',
-  port: parseInt(process.env.PG_PORT || '5433', 10),
-  database: process.env.PG_DATABASE || 'movilis_bd',
-  user: process.env.PG_USER || 'postgres',
-  password: process.env.PG_PASSWORD || 'postgres',
-});
-
-// Verificar conexión
-pool.on('connect', () => {
-  console.log('✅ Conectado a PostgreSQL');
-});
-
-pool.on('error', (err: Error) => {
-  console.error('❌ Error en PostgreSQL:', err.message);
-});
-
-// Función para probar la conexión
+// Función para probar la conexión usando Prisma
 export const testConnection = async (): Promise<boolean> => {
   try {
-    const client: PoolClient = await pool.connect();
-    const dbInfo = await client.query('SELECT current_database() as db_name');
-    console.log('✅ PostgreSQL conectado correctamente');
-    console.log(`📦 Base de datos: ${dbInfo.rows[0].db_name}`);
-    client.release();
+    await prisma.$connect();
+    const result = await prisma.$queryRaw<Array<{ current_database: string }>>`
+      SELECT current_database() as current_database
+    `;
+    console.log('✅ PostgreSQL conectado correctamente via Prisma');
+    console.log(`📦 Base de datos: ${result[0]?.current_database || 'N/A'}`);
     return true;
   } catch (error) {
     const err = error as Error;
     console.error('❌ Error conectando a PostgreSQL:', err.message);
     return false;
+  } finally {
+    // En Vercel (serverless), no desconectar para mantener la conexión
+    // Solo desconectar en desarrollo local
+    if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
+      await prisma.$disconnect();
+    }
   }
 };
 
-export { pool };
+// Mantener compatibilidad con código que pueda usar pool (obsoleto)
+// En el futuro, todo debería usar Prisma directamente
+export const pool = {
+  query: async () => {
+    throw new Error('pool.query() está obsoleto. Por favor usa Prisma directamente.');
+  }
+};
 
 

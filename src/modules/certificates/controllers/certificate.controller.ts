@@ -2,9 +2,68 @@ import { Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import { AuthRequest, ApiResponse, Certificate } from '../../../types';
 import certificateService from '../services/certificate.service';
-import certificatePostgresService from '../services/certificate.postgres.service';
+import certificatePostgresService from '../services/certificate.prisma.service';
 
 class CertificateController {
+  /**
+   * Crear un certificado rápidamente (versión simplificada para admin)
+   */
+  async createCertificateQuick(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          success: false,
+          error: { message: 'Datos inválidos', errors: errors.array() }
+        });
+        return;
+      }
+
+      if (!req.user) {
+        res.status(401).json({
+          success: false,
+          error: { message: 'No autenticado' }
+        });
+        return;
+      }
+
+      // Valores por defecto para creación rápida
+      const certificateData: Partial<Certificate> & { userIds?: string[] } = {
+        courseName: req.body.courseName,
+        nombreCurso: req.body.courseName,
+        institucion: req.body.institucion || 'Movilis',
+        emisorId: req.user._id,
+        issuerId: req.user._id,
+        status: 'draft' as 'draft' | 'issued' | 'revoked' | 'expired',
+        estado: 'draft' as 'draft' | 'issued' | 'revoked' | 'expired',
+        // Destinatario
+        destinatarioId: req.body.destinatarioId || req.body.recipientId || undefined,
+        recipientId: req.body.recipientId || req.body.destinatarioId || undefined,
+        // Múltiples usuarios
+        userIds: req.body.userIds || (req.body.destinatarioId || req.body.recipientId ? [req.body.destinatarioId || req.body.recipientId] : []),
+        // Fecha de expiración opcional
+        expirationDate: req.body.expirationDate || null,
+        fechaExpiracion: req.body.expirationDate || null,
+        // Descripción opcional
+        courseDescription: req.body.courseDescription || req.body.description || '',
+        description: req.body.description || req.body.courseDescription || '',
+        // Metadatos opcionales
+        metadata: req.body.metadata || {}
+      };
+
+      const certificate = await certificateService.createCertificate(certificateData);
+
+      const response: ApiResponse<Certificate> = {
+        success: true,
+        data: certificate,
+        message: 'Certificado creado exitosamente'
+      };
+      res.status(201).json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /**
    * Crear un nuevo certificado
    */

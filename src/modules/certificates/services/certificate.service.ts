@@ -1,7 +1,7 @@
-import certificatePostgresService from './certificate.postgres.service';
+import certificatePostgresService from './certificate.prisma.service';
 import googleDriveService from './googleDrive.service';
 import pdfService from './pdf.service';
-import userService from '../../users/services/user.postgres.service';
+import userService from '../../users/services/user.prisma.service';
 import { Certificate } from '../../../types';
 
 interface CertificateFilters {

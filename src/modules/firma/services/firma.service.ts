@@ -1,5 +1,8 @@
 // @ts-nocheck
-import { pool } from '../../../config/postgres';
+// NOTA: Este servicio requiere la tabla 'firmas' que no está en el schema de Prisma
+// Si necesitas usar este servicio, agrega el modelo 'firmas' al schema.prisma
+// Por ahora usa Prisma con queries raw
+import prisma from '../../../config/prisma';
 import { v4 as uuidv4 } from 'uuid';
 import { encriptarDatos, desencriptarDatos } from '../utils/p12.utils';
 

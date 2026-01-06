@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import { AuthRequest, ApiResponse, User } from '../../../types';
-import userService from '../services/user.postgres.service';
+import userService from '../services/user.prisma.service';
 
 class UserController {
   // GET /api/users/profile - Obtener perfil del usuario autenticado

@@ -1,10 +1,12 @@
 /**
  * Script para inicializar la tabla de firmas en PostgreSQL
+ * NOTA: Este script ya no es necesario si usas Prisma migrations
  * Ejecutar con: ts-node src/scripts/initFirmasTable.ts
+ * 
+ * Para crear tablas, usa: npx prisma migrate dev
  */
 
-import { QueryResult } from 'pg';
-import { pool } from '../config/postgres';
+import prisma from '../config/prisma';
 
 const createTableSQL = `
 CREATE TABLE IF NOT EXISTS firmas (
@@ -34,16 +36,17 @@ type ColumnInfo = { column_name: string; data_type: string };
 
 async function initFirmasTable(): Promise<void> {
   try {
-    console.log('🔄 Creando tabla de firmas...');
+    console.log('🔄 Creando tabla de firmas usando Prisma...');
 
-    await pool.query(createTableSQL);
+    // Usar Prisma para ejecutar SQL raw si es necesario
+    await prisma.$executeRawUnsafe(createTableSQL);
     console.log('✅ Tabla "firmas" creada correctamente');
 
-    await pool.query(createIndexesSQL);
+    await prisma.$executeRawUnsafe(createIndexesSQL);
     console.log('✅ Índices creados correctamente');
 
     // Verificar que la tabla existe
-    const result: QueryResult<ColumnInfo> = await pool.query(`
+    const result = await prisma.$queryRawUnsafe<Array<ColumnInfo>>(`
       SELECT column_name, data_type
       FROM information_schema.columns
       WHERE table_name = 'firmas'
@@ -51,18 +54,21 @@ async function initFirmasTable(): Promise<void> {
     `);
 
     console.log('\n📋 Estructura de la tabla:');
-    result.rows.forEach((col) => {
+    result.forEach((col) => {
       console.log(`   - ${col.column_name}: ${col.data_type}`);
     });
 
     console.log('\n✅ ¡Tabla de firmas lista para usar!');
+    await prisma.$disconnect();
     process.exit(0);
   } catch (error) {
     const err = error as Error;
     console.error('❌ Error creando tabla:', err.message);
+    await prisma.$disconnect();
     process.exit(1);
   }
 }
 
 void initFirmasTable();
+
 

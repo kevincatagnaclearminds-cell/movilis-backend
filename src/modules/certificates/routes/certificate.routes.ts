@@ -151,6 +151,34 @@ router.get(
 // Todas las demás rutas requieren autenticación
 router.use(authenticate);
 
+// Ruta rápida para crear certificados (solo admin, validaciones mínimas)
+router.post(
+  '/quick',
+  authorize('admin'), // Solo admins pueden crear certificados
+  [
+    body('courseName')
+      .trim()
+      .notEmpty()
+      .withMessage('El nombre del curso es requerido'),
+    body('destinatarioId')
+      .optional()
+      .isUUID()
+      .withMessage('ID de destinatario inválido'),
+    body('recipientId')
+      .optional()
+      .isUUID()
+      .withMessage('ID de destinatario inválido'),
+    body('userIds')
+      .optional()
+      .isArray()
+      .withMessage('userIds debe ser un array'),
+    body('institucion')
+      .optional()
+      .trim()
+  ],
+  certificateController.createCertificateQuick
+);
+
 // Rutas de certificados
 router.post(
   '/',
@@ -279,6 +307,18 @@ router.get(
       .withMessage('ID de certificado requerido')
   ],
   certificateController.getCertificateUsers
+);
+
+// Eliminar un certificado (solo admin)
+router.delete(
+  '/:id',
+  authorize('admin'), // Solo admins pueden eliminar
+  [
+    param('id')
+      .notEmpty()
+      .withMessage('ID de certificado requerido')
+  ],
+  certificateController.deleteCertificate
 );
 
 router.get(
