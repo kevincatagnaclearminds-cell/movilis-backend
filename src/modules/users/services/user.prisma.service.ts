@@ -1,6 +1,6 @@
 import prisma from '../../../config/prisma';
 import { User } from '../../../types';
-import type { users } from '../../../generated/prisma/client';
+import type { users } from '@prisma/client';
 
 class UserPrismaService {
   // Buscar usuario por cédula

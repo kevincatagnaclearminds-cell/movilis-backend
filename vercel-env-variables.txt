@@ -1,0 +1,49 @@
+# ============================================
+# VARIABLES DE ENTORNO PARA VERCEL
+# ============================================
+# Copia estas variables y pégalas en Vercel:
+# Settings → Environment Variables
+# ============================================
+
+# ============================================
+# BASE DE DATOS (REQUERIDO)
+# ============================================
+DATABASE_URL=postgresql://postgres:TU_PASSWORD@db.nnkzwhavjrufjdpokanm.supabase.co:5432/postgres?sslmode=require
+
+# ============================================
+# ENTORNO Y PUERTO
+# ============================================
+NODE_ENV=production
+PORT=3000
+
+# ============================================
+# AUTENTICACIÓN JWT (REQUERIDO)
+# ============================================
+JWT_SECRET=tu-secret-super-seguro-cambiar-en-produccion
+JWT_EXPIRES_IN=7d
+
+# ============================================
+# CORS (REQUERIDO)
+# ============================================
+CORS_ORIGIN=https://tu-frontend.vercel.app
+
+# ============================================
+# CERTIFICADO P12 PARA FIRMA DIGITAL (REQUERIDO)
+# ============================================
+# IMPORTANTE: Pega TODO el contenido de p12_base64_only.txt aquí
+# Debe tener aproximadamente 11,756 caracteres en UNA SOLA LÍNEA
+P12_BASE64=[PEGA_AQUI_TODO_EL_CONTENIDO_DE_p12_base64_only.txt]
+
+P12_PASSWORD=tu-password-del-certificado
+
+# ============================================
+# GOOGLE DRIVE (OPCIONAL)
+# ============================================
+# GOOGLE_DRIVE_FOLDER_ID=tu-folder-id-aqui
+# GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
+
+# ============================================
+# ENCRIPTACIÓN (OPCIONAL)
+# ============================================
+# ENCRYPTION_KEY=tu-clave-de-encriptacion-32-caracteres-minimo
+

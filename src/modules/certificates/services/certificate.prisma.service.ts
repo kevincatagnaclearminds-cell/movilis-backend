@@ -2,7 +2,7 @@ import prisma from '../../../config/prisma';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { v4: uuidv4 } = require('uuid');
 import { Certificate } from '../../../types';
-import type { certificados_usuarios, certificados } from '../../../generated/prisma/client';
+import type { certificados_usuarios, certificados } from '@prisma/client';
 
 interface AssignedUser {
   id: string;
@@ -311,7 +311,7 @@ class CertificatePrismaService {
 
       const mappedCertificates = await Promise.all(
         certificates.map(async (cert: certificados & { certificados_usuarios: Array<certificados_usuarios & { users: { id: string; name: string; email: string | null; cedula: string } }> }) => {
-          const assignedUsers: AssignedUser[] = cert.certificados_usuarios.map(cu => ({
+          const assignedUsers: AssignedUser[] = cert.certificados_usuarios.map((cu: certificados_usuarios & { users: { id: string; name: string; email: string | null; cedula: string } }) => ({
             id: cu.users.id,
             name: cu.users.name,
             email: cu.users.email || undefined,
@@ -417,9 +417,9 @@ class CertificatePrismaService {
         })
       ]);
 
-      const certificates = certificadosUsuarios.map((cu) => {
+      const certificates = certificadosUsuarios.map((cu: certificados_usuarios & { certificados: certificados & { certificados_usuarios: Array<certificados_usuarios & { users: { id: string; name: string; email: string | null; cedula: string } }> } }) => {
         const cert = cu.certificados;
-        const assignedUsers: AssignedUser[] = cert.certificados_usuarios.map((cuInner) => ({
+        const assignedUsers: AssignedUser[] = cert.certificados_usuarios.map((cuInner: certificados_usuarios & { users: { id: string; name: string; email: string | null; cedula: string } }) => ({
           id: cuInner.users.id,
           name: cuInner.users.name,
           email: cuInner.users.email || undefined,
@@ -707,7 +707,7 @@ class CertificatePrismaService {
         }
       });
       
-      return certificadosUsuarios.map((cu) => ({
+      return certificadosUsuarios.map((cu: certificados_usuarios & { users: { id: string; name: string; email: string | null; cedula: string } }) => ({
         _id: cu.users.id,
         id: cu.users.id,
         cedula: cu.users.cedula,
