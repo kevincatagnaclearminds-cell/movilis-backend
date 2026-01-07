@@ -93,30 +93,40 @@ class AuthService {
       // Generar token
       const token = this.generateToken(user._id);
 
-    // Determinar redirección según el rol
-    let redirectTo: string | undefined;
-    if (user.role === 'admin') {
-      redirectTo = '/admin/dashboard';
-    } else if (user.role === 'issuer') {
-      redirectTo = '/issuer/dashboard';
-    } else {
-      redirectTo = '/user/dashboard';
-    }
+      // Determinar redirección según el rol
+      let redirectTo: string | undefined;
+      if (user.role === 'admin') {
+        redirectTo = '/admin/dashboard';
+      } else if (user.role === 'issuer') {
+        redirectTo = '/issuer/dashboard';
+      } else {
+        redirectTo = '/user/dashboard';
+      }
 
-    return {
-      user: {
-        id: user._id,
-        cedula: user.cedula,
-        name: user.name,
-        nombre: user.name,
-        nombreCompleto: user.name,
-        email: user.email,
-        correo: user.email,
-        role: user.role
-      },
-      token,
-      redirectTo
-    };
+      return {
+        user: {
+          id: user._id,
+          cedula: user.cedula,
+          name: user.name,
+          nombre: user.name,
+          nombreCompleto: user.name,
+          email: user.email,
+          correo: user.email,
+          role: user.role
+        },
+        token,
+        redirectTo
+      };
+    } catch (error) {
+      const err = error as Error;
+      // Si ya es un error conocido, relanzarlo
+      if (err.message === 'Cédula no registrada' || err.message === 'Usuario inactivo') {
+        throw err;
+      }
+      // Para otros errores, loguear y relanzar con mensaje genérico
+      console.error('Error en login:', err.message, err.stack);
+      throw new Error(`Error al iniciar sesión: ${err.message}`);
+    }
   }
 }
 
