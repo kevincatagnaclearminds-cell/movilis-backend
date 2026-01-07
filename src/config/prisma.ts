@@ -8,9 +8,18 @@ import pg from 'pg';
 
 let { DATABASE_URL } = process.env;
 if (!DATABASE_URL) {
-  console.error('❌ ERROR: DATABASE_URL no está definida en las variables de entorno');
+  const errorMsg = 'DATABASE_URL no está definida en las variables de entorno';
+  console.error('❌ ERROR:', errorMsg);
   console.error('💡 Verifica que DATABASE_URL esté configurada en Vercel: Settings → Environment Variables');
-  throw new Error('DATABASE_URL no está definida en las variables de entorno');
+  
+  // En Vercel, no crashear inmediatamente, permitir que la app se inicie
+  // pero las queries a la DB fallarán con un error claro
+  if (process.env.VERCEL) {
+    console.warn('⚠️ [Vercel] Continuando sin DATABASE_URL - las queries fallarán');
+    DATABASE_URL = 'postgresql://dummy:dummy@localhost:5432/dummy'; // URL dummy para evitar crash
+  } else {
+    throw new Error(errorMsg);
+  }
 }
 
 // Configurar pool de PostgreSQL con SSL para Supabase
