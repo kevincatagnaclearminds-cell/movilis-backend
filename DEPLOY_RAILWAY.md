@@ -57,11 +57,22 @@ PORT=3000
 
 #### Cómo obtener DATABASE_URL de Supabase
 
+**⚠️ IMPORTANTE: Railway requiere IPv4, por lo que DEBES usar Connection Pooling**
+
 1. Ve a tu proyecto en Supabase
 2. Settings → Database
-3. Connection string → Connection pooling
-4. Copia la URL y reemplaza `[YOUR-PASSWORD]` con tu password real
-5. Asegúrate de que termine con `/postgres?sslmode=require`
+3. Connection string → **Connection pooling** (NO uses "Direct connection")
+4. Selecciona **"Session mode"** (recomendado para Prisma)
+5. Copia la URL que aparecerá (será diferente, con `pooler.supabase.com` y puerto `6543`)
+6. Reemplaza `[YOUR-PASSWORD]` con tu password real
+7. Asegúrate de que termine con `/postgres?sslmode=require`
+
+**Ejemplo de URL de Connection Pooling:**
+```
+postgresql://postgres.xxx:TU_PASSWORD@aws-0-us-west-1.pooler.supabase.com:6543/postgres?sslmode=require
+```
+
+**Nota:** Si ves la advertencia "Not IPv4 compatible" en Supabase, significa que debes usar el Pooler. Railway no soporta IPv6.
 
 ### 4. Configurar Build y Start Commands
 
