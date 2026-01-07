@@ -21,6 +21,10 @@
   ],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=20.19.0",
+    "npm": ">=9.0.0"
+  },
   "dependencies": {
     "@btielen/pdf-lib-fontkit": "^1.0.0",
     "@prisma/adapter-pg": "^7.2.0",
