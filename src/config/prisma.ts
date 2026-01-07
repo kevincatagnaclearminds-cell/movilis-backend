@@ -26,11 +26,17 @@ if (!DATABASE_URL) {
 // Remover comillas si las hay (pueden venir del .env)
 DATABASE_URL = DATABASE_URL.trim().replace(/^["']|["']$/g, '');
 
-// Asegurar que termine con ?sslmode=require si no tiene parámetros
+// Si la URL no tiene parámetros, agregar sslmode=require
+// Si ya tiene parámetros pero no sslmode, agregarlo
 if (!DATABASE_URL.includes('?')) {
   DATABASE_URL += '?sslmode=require';
 } else if (!DATABASE_URL.includes('sslmode=')) {
   DATABASE_URL += '&sslmode=require';
+}
+
+// Validar que la URL tenga el formato correcto
+if (!DATABASE_URL.match(/^postgresql:\/\/.+\/.+/)) {
+  console.warn('⚠️ [Database] La URL parece estar incompleta. Debe incluir el nombre de la base de datos después del puerto.');
 }
 
 // Log de configuración (sin mostrar el password completo)
