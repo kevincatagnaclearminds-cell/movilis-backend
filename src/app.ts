@@ -19,11 +19,47 @@ const app: Application = express();
 // Middleware de seguridad
 app.use(helmet());
 
-// CORS
-app.use(cors({
-  origin: config.corsOrigin || '*',
-  credentials: true
-}));
+// CORS - Configuración mejorada para soportar múltiples orígenes
+const allowedOrigins = config.corsOrigin 
+  ? config.corsOrigin.split(',').map(o => o.trim())
+  : ['*'];
+
+// Log de configuración CORS
+if (config.env === 'development' || process.env.VERCEL) {
+  console.log('🔒 [CORS] Orígenes permitidos:', allowedOrigins.length === 1 && allowedOrigins[0] === '*' 
+    ? 'Todos (*)' 
+    : allowedOrigins.join(', '));
+}
+
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Permitir todos los orígenes si está configurado como '*'
+    if (allowedOrigins.includes('*')) {
+      callback(null, true);
+      return;
+    }
+    
+    // Permitir requests sin origen (como Postman, curl, etc.)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    
+    // Verificar si el origen está permitido
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️ [CORS] Origen bloqueado: ${origin}. Orígenes permitidos: ${allowedOrigins.join(', ')}`);
+      callback(new Error('No permitido por CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
+};
+
+app.use(cors(corsOptions));
 
 // Body parser
 app.use(express.json());

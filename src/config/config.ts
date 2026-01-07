@@ -6,7 +6,7 @@ export default {
   mongodbUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/movilis-certificates',
   jwtSecret: process.env.JWT_SECRET || 'default-secret-change-in-production',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  corsOrigin: process.env.CORS_ORIGIN || '*'
+  corsOrigin: process.env.CORS_ORIGIN || '*', // Puede ser '*' o múltiples URLs separadas por comas
 };
 
 
