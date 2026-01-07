@@ -29,20 +29,36 @@ class PDFService {
   private defaultFont: string;
 
   constructor() {
-    // Crear directorio de certificados si no existe
-    this.certificatesDir = path.join(__dirname, '../../../uploads/certificates');
-    if (!fs.existsSync(this.certificatesDir)) {
-      fs.mkdirSync(this.certificatesDir, { recursive: true });
+    // En Vercel (serverless), no crear directorios locales - usar /tmp si es necesario
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    
+    if (isServerless) {
+      // En serverless, usar /tmp para archivos temporales
+      this.certificatesDir = '/tmp/uploads/certificates';
+      this.fontsDir = '/tmp/public/fonts';
+    } else {
+      // En desarrollo local, usar directorios normales
+      this.certificatesDir = path.join(__dirname, '../../../uploads/certificates');
+      this.fontsDir = path.join(__dirname, '../../../public/fonts');
+    }
+    
+    // Crear directorios solo si no estamos en serverless o si es /tmp
+    if (!isServerless || this.certificatesDir.startsWith('/tmp')) {
+      try {
+        if (!fs.existsSync(this.certificatesDir)) {
+          fs.mkdirSync(this.certificatesDir, { recursive: true });
+        }
+        if (!fs.existsSync(this.fontsDir)) {
+          fs.mkdirSync(this.fontsDir, { recursive: true });
+        }
+      } catch (error) {
+        // En serverless, los directorios pueden no ser necesarios
+        console.warn('⚠️ No se pudieron crear directorios (normal en serverless):', (error as Error).message);
+      }
     }
     
     // Ruta a la plantilla PDF
     this.templatePath = path.join(__dirname, '../templates/certificado.pdf');
-    
-    // Directorio de fuentes
-    this.fontsDir = path.join(__dirname, '../../../public/fonts');
-    if (!fs.existsSync(this.fontsDir)) {
-      fs.mkdirSync(this.fontsDir, { recursive: true });
-    }
     
     // Rutas a las fuentes disponibles
     this.fonts = {
