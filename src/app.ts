@@ -57,8 +57,14 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.warn(`⚠️ [CORS] Origen bloqueado: ${origin}. Orígenes permitidos: ${allowedOrigins.join(', ')}`);
-      callback(new Error('No permitido por CORS'));
+      // En desarrollo o si CORS_ORIGIN no está configurado, permitir todos
+      if (config.env === 'development' || !process.env.CORS_ORIGIN) {
+        console.warn(`⚠️ [CORS] Origen no en lista pero permitiendo (desarrollo): ${origin}`);
+        callback(null, true);
+      } else {
+        console.warn(`⚠️ [CORS] Origen bloqueado: ${origin}. Orígenes permitidos: ${allowedOrigins.join(', ')}`);
+        callback(null, false); // Cambiar a false en lugar de Error
+      }
     }
   },
   credentials: true,
