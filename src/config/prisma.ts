@@ -44,6 +44,14 @@ if (process.env.VERCEL) {
   const urlParts = DATABASE_URL.split('@');
   const safeUrl = urlParts.length > 1 ? `postgresql://postgres:***@${urlParts[1]}` : '***';
   console.log('🔌 [Database] URL configurada:', safeUrl);
+  console.log('🔌 [Database] Host:', DATABASE_URL.match(/@([^:]+)/)?.[1] || 'N/A');
+}
+
+// Log de configuración (sin mostrar el password completo)
+if (process.env.VERCEL) {
+  const urlParts = DATABASE_URL.split('@');
+  const safeUrl = urlParts.length > 1 ? `postgresql://postgres:***@${urlParts[1]}` : '***';
+  console.log('🔌 [Database] URL configurada:', safeUrl);
 }
 
 // Configurar pool de PostgreSQL con SSL para Supabase
@@ -53,15 +61,21 @@ const poolConfig: pg.PoolConfig = {
   connectionString: DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
+  },
+  // Configuración para serverless
+  max: process.env.VERCEL ? 1 : 10, // En serverless, usar solo 1 conexión
+  idleTimeoutMillis: process.env.VERCEL ? 30000 : 300000, // Cerrar conexiones inactivas rápido en serverless
+  connectionTimeoutMillis: process.env.VERCEL ? 15000 : 10000, // Timeout más largo para dar tiempo a establecer conexión
+  // Reintentar conexión si falla
+  retry: {
+    max: 3,
+    match: [
+      /ETIMEDOUT/,
+      /ECONNREFUSED/,
+      /ENOTFOUND/
+    ]
   }
 };
-
-// Configuración adicional para serverless
-if (process.env.VERCEL) {
-  poolConfig.max = 1; // En serverless, usar solo 1 conexión
-  poolConfig.idleTimeoutMillis = 30000; // Cerrar conexiones inactivas rápido
-  poolConfig.connectionTimeoutMillis = 10000; // Timeout más corto
-}
 
 const pool = new pg.Pool(poolConfig);
 
