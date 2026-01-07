@@ -17,11 +17,15 @@ if (!process.env.VERCEL) {
 
 // Iniciar servidor
 // Railway asigna el puerto automáticamente a través de process.env.PORT
-const PORT = parseInt(process.env.PORT || String(config.port || 3000), 10);
+// Es crítico usar process.env.PORT en Railway, no el puerto por defecto
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : (config.port || 3000);
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   console.log(`📝 Entorno: ${config.env}`);
   console.log(`🌐 URL: http://0.0.0.0:${PORT}`);
+  if (process.env.RAILWAY_ENVIRONMENT) {
+    console.log(`🔗 Railway URL: https://${process.env.RAILWAY_PUBLIC_DOMAIN || 'tu-proyecto.up.railway.app'}`);
+  }
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {
