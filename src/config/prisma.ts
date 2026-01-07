@@ -34,6 +34,12 @@ if (!DATABASE_URL) {
 // Remover comillas si las hay (pueden venir del .env)
 DATABASE_URL = DATABASE_URL.trim().replace(/^["']|["']$/g, '');
 
+// En Railway, forzar IPv4 agregando parámetro a la URL si no existe
+if (process.env.RAILWAY_ENVIRONMENT && !DATABASE_URL.includes('connect_timeout')) {
+  const separator = DATABASE_URL.includes('?') ? '&' : '?';
+  DATABASE_URL += `${separator}connect_timeout=10`;
+}
+
 // Codificar el password si tiene caracteres especiales que necesiten codificación URL
 // Esto es importante para passwords con *, ., @, etc.
 try {
