@@ -27,6 +27,9 @@ Thumbs.db
 dist/
 build/
 
+# Docker
+.dockerignore
+
 # Testing
 coverage/
 .nyc_output/
