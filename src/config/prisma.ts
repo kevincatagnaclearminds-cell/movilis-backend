@@ -14,12 +14,12 @@ let { DATABASE_URL } = process.env;
 if (!DATABASE_URL) {
   const errorMsg = 'DATABASE_URL no está definida en las variables de entorno';
   console.error('❌ ERROR:', errorMsg);
-  console.error('💡 Verifica que DATABASE_URL esté configurada en Vercel: Settings → Environment Variables');
+  console.error('💡 Verifica que DATABASE_URL esté configurada en Railway: Settings → Variables');
   
-  // En Vercel, no crashear inmediatamente, permitir que la app se inicie
+  // En Vercel o Railway (serverless/tradicional), no crashear inmediatamente
   // pero las queries a la DB fallarán con un error claro
-  if (process.env.VERCEL) {
-    console.warn('⚠️ [Vercel] Continuando sin DATABASE_URL - las queries fallarán');
+  if (process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT) {
+    console.warn('⚠️ Continuando sin DATABASE_URL - las queries fallarán');
     DATABASE_URL = 'postgresql://dummy:dummy@localhost:5432/dummy'; // URL dummy para evitar crash
   } else {
     throw new Error(errorMsg);
