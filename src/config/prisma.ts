@@ -26,6 +26,28 @@ if (!DATABASE_URL) {
 // Remover comillas si las hay (pueden venir del .env)
 DATABASE_URL = DATABASE_URL.trim().replace(/^["']|["']$/g, '');
 
+// Codificar el password si tiene caracteres especiales que necesiten codificación URL
+// Esto es importante para passwords con *, ., @, etc.
+try {
+  const urlMatch = DATABASE_URL.match(/^postgresql:\/\/([^:]+):([^@]+)@(.+)$/);
+  if (urlMatch) {
+    const [, user, password, rest] = urlMatch;
+    // Si el password no está codificado y tiene caracteres especiales, codificarlo
+    const decodedPassword = decodeURIComponent(password);
+    if (decodedPassword === password && /[*@%]/.test(password)) {
+      // El password tiene caracteres especiales y no está codificado
+      const encodedPassword = encodeURIComponent(password);
+      DATABASE_URL = `postgresql://${user}:${encodedPassword}@${rest}`;
+      if (process.env.VERCEL) {
+        console.log('🔧 [Database] Password codificado (contiene caracteres especiales)');
+      }
+    }
+  }
+} catch (error) {
+  // Si hay error al procesar la URL, continuar con la original
+  console.warn('⚠️ [Database] Error procesando URL, usando URL original:', (error as Error).message);
+}
+
 // Si la URL no tiene parámetros, agregar sslmode=require
 // Si ya tiene parámetros pero no sslmode, agregarlo
 if (!DATABASE_URL.includes('?')) {
@@ -44,14 +66,9 @@ if (process.env.VERCEL) {
   const urlParts = DATABASE_URL.split('@');
   const safeUrl = urlParts.length > 1 ? `postgresql://postgres:***@${urlParts[1]}` : '***';
   console.log('🔌 [Database] URL configurada:', safeUrl);
-  console.log('🔌 [Database] Host:', DATABASE_URL.match(/@([^:]+)/)?.[1] || 'N/A');
-}
-
-// Log de configuración (sin mostrar el password completo)
-if (process.env.VERCEL) {
-  const urlParts = DATABASE_URL.split('@');
-  const safeUrl = urlParts.length > 1 ? `postgresql://postgres:***@${urlParts[1]}` : '***';
-  console.log('🔌 [Database] URL configurada:', safeUrl);
+  const hostMatch = DATABASE_URL.match(/@([^:]+)/);
+  console.log('🔌 [Database] Host:', hostMatch ? hostMatch[1] : 'N/A');
+  console.log('🔌 [Database] Pool config:', { max: process.env.VERCEL ? 1 : 10, connectionTimeout: process.env.VERCEL ? 15000 : 10000 });
 }
 
 // Configurar pool de PostgreSQL con SSL para Supabase
