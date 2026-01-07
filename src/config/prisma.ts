@@ -22,6 +22,24 @@ if (!DATABASE_URL) {
   }
 }
 
+// Limpiar y validar DATABASE_URL
+// Remover comillas si las hay (pueden venir del .env)
+DATABASE_URL = DATABASE_URL.trim().replace(/^["']|["']$/g, '');
+
+// Asegurar que termine con ?sslmode=require si no tiene parámetros
+if (!DATABASE_URL.includes('?')) {
+  DATABASE_URL += '?sslmode=require';
+} else if (!DATABASE_URL.includes('sslmode=')) {
+  DATABASE_URL += '&sslmode=require';
+}
+
+// Log de configuración (sin mostrar el password completo)
+if (process.env.VERCEL) {
+  const urlParts = DATABASE_URL.split('@');
+  const safeUrl = urlParts.length > 1 ? `postgresql://postgres:***@${urlParts[1]}` : '***';
+  console.log('🔌 [Database] URL configurada:', safeUrl);
+}
+
 // Configurar pool de PostgreSQL con SSL para Supabase
 // Supabase requiere SSL pero acepta certificados auto-firmados
 // En serverless (Vercel), usar configuración optimizada
