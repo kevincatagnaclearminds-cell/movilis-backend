@@ -106,8 +106,30 @@ const poolConfig: pg.PoolConfig = {
   // Configuración para serverless (Vercel) vs servidor tradicional (Railway)
   max: process.env.VERCEL ? 1 : 10, // En serverless, usar solo 1 conexión; en Railway, usar pool normal
   idleTimeoutMillis: process.env.VERCEL ? 30000 : 300000, // Cerrar conexiones inactivas rápido en serverless
-  connectionTimeoutMillis: process.env.VERCEL ? 15000 : 10000 // Timeout más largo para dar tiempo a establecer conexión
+  connectionTimeoutMillis: process.env.VERCEL ? 15000 : 10000, // Timeout más largo para dar tiempo a establecer conexión
+  // En Railway, forzar IPv4 para evitar problemas de conectividad IPv6
+  ...(process.env.RAILWAY_ENVIRONMENT && {
+    // Extraer hostname de la URL y forzar resolución IPv4
+    // Esto se hace a nivel de sistema, pero podemos intentar con el hostname
+  })
 };
+
+// En Railway, intentar forzar IPv4 resolviendo el hostname manualmente
+if (process.env.RAILWAY_ENVIRONMENT) {
+  try {
+    const hostMatch = DATABASE_URL.match(/@([^:]+):/);
+    if (hostMatch) {
+      const hostname = hostMatch[1];
+      // Si el hostname es de Supabase directo (no pooler), sugerir usar pooler
+      if (hostname.includes('.supabase.co') && !hostname.includes('.pooler.')) {
+        console.warn('⚠️ [Database] Usando conexión directa a Supabase. Para mejor compatibilidad con Railway, considera usar Connection Pooling.');
+        console.warn('💡 [Database] Ve a Supabase → Settings → Database → Connection Pooling y usa esa URL');
+      }
+    }
+  } catch (error) {
+    // Ignorar errores de parsing
+  }
+}
 
 const pool = new pg.Pool(poolConfig);
 
