@@ -70,6 +70,16 @@ if (!DATABASE_URL.includes('?')) {
   DATABASE_URL += '&sslmode=require';
 }
 
+// En Railway, agregar parámetros adicionales para mejorar la conexión
+if (process.env.RAILWAY_ENVIRONMENT) {
+  const separator = DATABASE_URL.includes('?') ? '&' : '?';
+  // Forzar IPv4 y aumentar timeout para Railway
+  if (!DATABASE_URL.includes('connect_timeout')) {
+    DATABASE_URL += `${separator}connect_timeout=30`;
+  }
+  console.log('🔧 [Database] Configuración Railway aplicada (timeout aumentado)');
+}
+
 // Validar que la URL tenga el formato correcto
 if (!DATABASE_URL.match(/^postgresql:\/\/.+\/.+/)) {
   console.warn('⚠️ [Database] La URL parece estar incompleta. Debe incluir el nombre de la base de datos después del puerto.');
