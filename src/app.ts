@@ -39,36 +39,17 @@ if (config.env === 'development' || process.env.VERCEL) {
   }
 }
 
-// Simplificar CORS - si no hay CORS_ORIGIN configurado, permitir todos
-const corsOptions: cors.CorsOptions = allowedOrigins.includes('*') || !process.env.CORS_ORIGIN
-  ? {
-      origin: true, // Permitir todos los orígenes
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-      exposedHeaders: ['Content-Range', 'X-Content-Range']
-    }
-  : {
-      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        // Permitir requests sin origen (como Postman, curl, etc.)
-        if (!origin) {
-          callback(null, true);
-          return;
-        }
-        
-        // Verificar si el origen está permitido
-        if (allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          console.warn(`⚠️ [CORS] Origen bloqueado: ${origin}. Orígenes permitidos: ${allowedOrigins.join(', ')}`);
-          callback(null, false);
-        }
-      },
-      credentials: true,
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-      exposedHeaders: ['Content-Range', 'X-Content-Range']
-    };
+// Simplificar CORS - siempre permitir todos los orígenes por defecto
+// Esto asegura que funcione en Vercel sin necesidad de configurar CORS_ORIGIN
+const corsOptions: cors.CorsOptions = {
+  origin: true, // Permitir todos los orígenes
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
 
 app.use(cors(corsOptions));
 
