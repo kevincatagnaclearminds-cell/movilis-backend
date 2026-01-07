@@ -65,16 +65,7 @@ const poolConfig: pg.PoolConfig = {
   // Configuración para serverless
   max: process.env.VERCEL ? 1 : 10, // En serverless, usar solo 1 conexión
   idleTimeoutMillis: process.env.VERCEL ? 30000 : 300000, // Cerrar conexiones inactivas rápido en serverless
-  connectionTimeoutMillis: process.env.VERCEL ? 15000 : 10000, // Timeout más largo para dar tiempo a establecer conexión
-  // Reintentar conexión si falla
-  retry: {
-    max: 3,
-    match: [
-      /ETIMEDOUT/,
-      /ECONNREFUSED/,
-      /ENOTFOUND/
-    ]
-  }
+  connectionTimeoutMillis: process.env.VERCEL ? 15000 : 10000 // Timeout más largo para dar tiempo a establecer conexión
 };
 
 const pool = new pg.Pool(poolConfig);
