@@ -1,3 +1,4 @@
+
 # 🚨 Solución: Error 500 en Vercel (Serverless Function Crashed)
 
 ## ❌ El Error que Ves

@@ -20,21 +20,29 @@ const app: Application = express();
 app.use(helmet());
 
 // CORS - Configuración mejorada para soportar múltiples orígenes
-const allowedOrigins = config.corsOrigin 
-  ? config.corsOrigin.split(',').map(o => o.trim())
-  : ['*'];
+// Leer directamente de process.env para asegurar que funcione en Vercel
+const corsOriginEnv = process.env.CORS_ORIGIN || config.corsOrigin || '*';
+const allowedOrigins = corsOriginEnv === '*'
+  ? ['*']
+  : corsOriginEnv.split(',').map(o => o.trim()).filter(o => o.length > 0);
 
 // Log de configuración CORS
 if (config.env === 'development' || process.env.VERCEL) {
-  console.log('🔒 [CORS] Orígenes permitidos:', allowedOrigins.length === 1 && allowedOrigins[0] === '*' 
-    ? 'Todos (*)' 
-    : allowedOrigins.join(', '));
+  const originsDisplay = allowedOrigins.length === 1 && allowedOrigins[0] === '*' 
+    ? 'Todos (*) - CORS_ORIGIN no configurado, permitiendo todos los orígenes' 
+    : allowedOrigins.join(', ');
+  console.log('🔒 [CORS] Orígenes permitidos:', originsDisplay);
+  
+  if ((!process.env.CORS_ORIGIN || process.env.CORS_ORIGIN === '*') && process.env.VERCEL) {
+    console.warn('⚠️ [CORS] CORS_ORIGIN no está configurado en Vercel. Permitiendo todos los orígenes por defecto.');
+    console.warn('💡 [CORS] Para mayor seguridad, configura CORS_ORIGIN en Vercel: Settings → Environment Variables');
+  }
 }
 
 const corsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Permitir todos los orígenes si está configurado como '*'
-    if (allowedOrigins.includes('*')) {
+    // Permitir todos los orígenes si está configurado como '*' o si no hay configuración
+    if (allowedOrigins.includes('*') || allowedOrigins.length === 0) {
       callback(null, true);
       return;
     }
