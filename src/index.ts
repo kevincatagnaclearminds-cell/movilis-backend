@@ -3,8 +3,8 @@ import config from './config/config';
 import { testConnection } from './config/postgres';
 
 // Conectar a PostgreSQL via Prisma
-// Solo en desarrollo local, en Vercel se conecta automáticamente
-if (process.env.VERCEL !== '1') {
+// En Railway y desarrollo local, probar conexión al iniciar
+if (!process.env.VERCEL) {
   testConnection().catch((err) => {
     console.error('❌ Error en conexión inicial:', err);
   });
@@ -16,10 +16,12 @@ if (process.env.VERCEL !== '1') {
 // connectDatabase().catch(() => {});
 
 // Iniciar servidor
-const PORT = config.port || 3000;
-const server = app.listen(PORT, () => {
+// Railway asigna el puerto automáticamente a través de process.env.PORT
+const PORT = parseInt(process.env.PORT || String(config.port || 3000), 10);
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   console.log(`📝 Entorno: ${config.env}`);
+  console.log(`🌐 URL: http://0.0.0.0:${PORT}`);
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

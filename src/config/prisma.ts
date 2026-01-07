@@ -83,8 +83,8 @@ const poolConfig: pg.PoolConfig = {
   ssl: {
     rejectUnauthorized: false
   },
-  // Configuración para serverless
-  max: process.env.VERCEL ? 1 : 10, // En serverless, usar solo 1 conexión
+  // Configuración para serverless (Vercel) vs servidor tradicional (Railway)
+  max: process.env.VERCEL ? 1 : 10, // En serverless, usar solo 1 conexión; en Railway, usar pool normal
   idleTimeoutMillis: process.env.VERCEL ? 30000 : 300000, // Cerrar conexiones inactivas rápido en serverless
   connectionTimeoutMillis: process.env.VERCEL ? 15000 : 10000 // Timeout más largo para dar tiempo a establecer conexión
 };
