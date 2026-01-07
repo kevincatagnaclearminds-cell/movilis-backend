@@ -39,39 +39,36 @@ if (config.env === 'development' || process.env.VERCEL) {
   }
 }
 
-const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Permitir todos los orígenes si está configurado como '*' o si no hay configuración
-    if (allowedOrigins.includes('*') || allowedOrigins.length === 0) {
-      callback(null, true);
-      return;
+// Simplificar CORS - si no hay CORS_ORIGIN configurado, permitir todos
+const corsOptions: cors.CorsOptions = allowedOrigins.includes('*') || !process.env.CORS_ORIGIN
+  ? {
+      origin: true, // Permitir todos los orígenes
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range']
     }
-    
-    // Permitir requests sin origen (como Postman, curl, etc.)
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-    
-    // Verificar si el origen está permitido
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      // En desarrollo o si CORS_ORIGIN no está configurado, permitir todos
-      if (config.env === 'development' || !process.env.CORS_ORIGIN) {
-        console.warn(`⚠️ [CORS] Origen no en lista pero permitiendo (desarrollo): ${origin}`);
-        callback(null, true);
-      } else {
-        console.warn(`⚠️ [CORS] Origen bloqueado: ${origin}. Orígenes permitidos: ${allowedOrigins.join(', ')}`);
-        callback(null, false); // Cambiar a false en lugar de Error
-      }
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range']
-};
+  : {
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Permitir requests sin origen (como Postman, curl, etc.)
+        if (!origin) {
+          callback(null, true);
+          return;
+        }
+        
+        // Verificar si el origen está permitido
+        if (allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          console.warn(`⚠️ [CORS] Origen bloqueado: ${origin}. Orígenes permitidos: ${allowedOrigins.join(', ')}`);
+          callback(null, false);
+        }
+      },
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range']
+    };
 
 app.use(cors(corsOptions));
 
