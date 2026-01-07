@@ -218,9 +218,13 @@ class PDFService {
           issueDate,
           expirationDate,
           issuerName = 'Movilis',
-          metadata = {}
+          metadata = {},
+          fontName = this.defaultFont
         } = certificateData;
 
+        // Obtener la ruta de la fuente
+        const fontPath = this.fonts[fontName] || this.fonts[this.defaultFont];
+        
         // Nombre del archivo
         const fileName = `certificate-${certificateNumber}-${Date.now()}.pdf`;
         const filePath = path.join(this.certificatesDir, fileName);
@@ -236,6 +240,11 @@ class PDFService {
             right: 50
           }
         });
+        
+        // Registrar la fuente personalizada
+        if (fs.existsSync(fontPath)) {
+          doc.registerFont('CustomFont', fontPath);
+        }
 
         // Pipe al archivo
         const stream = fs.createWriteStream(filePath);
@@ -244,46 +253,57 @@ class PDFService {
         // Fondo decorativo (opcional)
         this._drawBackground(doc);
 
+        // Usar la fuente personalizada si está disponible, de lo contrario usar Helvetica
+        const titleFont = fs.existsSync(fontPath) ? 'CustomFont' : 'Helvetica-Bold';
+        const bodyFont = fs.existsSync(fontPath) ? 'CustomFont' : 'Helvetica';
+        
+        // Ajustar tamaños de fuente para la fuente personalizada
+        const titleFontSize = fs.existsSync(fontPath) ? 42 : 36;
+        const subtitleFontSize = fs.existsSync(fontPath) ? 22 : 18;
+        const nameFontSize = fs.existsSync(fontPath) ? 32 : 28;
+        const bodyFontSize = fs.existsSync(fontPath) ? 20 : 16;
+        const courseFontSize = fs.existsSync(fontPath) ? 26 : 22;
+
         // Título del certificado
-        doc.fontSize(36)
+        doc.fontSize(titleFontSize)
           .fillColor('#1a1a1a')
-          .font('Helvetica-Bold')
+          .font(titleFont)
           .text('CERTIFICADO', {
             align: 'center',
             y: 150
           } as any);
 
         // Subtítulo
-        doc.fontSize(18)
+        doc.fontSize(subtitleFontSize)
           .fillColor('#666666')
-          .font('Helvetica')
+          .font(bodyFont)
           .text('de Finalización', {
             align: 'center',
             y: 200
           } as any);
 
         // Nombre del destinatario
-        doc.fontSize(28)
+        doc.fontSize(nameFontSize)
           .fillColor('#1a1a1a')
-          .font('Helvetica-Bold')
+          .font(titleFont)
           .text(recipientName, {
             align: 'center',
             y: 280
           } as any);
 
         // Texto de certificación
-        doc.fontSize(16)
+        doc.fontSize(bodyFontSize)
           .fillColor('#333333')
-          .font('Helvetica')
+          .font(bodyFont)
           .text('ha completado exitosamente el curso', {
             align: 'center',
             y: 340
           } as any);
 
         // Nombre del curso
-        doc.fontSize(22)
+        doc.fontSize(courseFontSize)
           .fillColor('#1a1a1a')
-          .font('Helvetica-Bold')
+          .font(titleFont)
           .text(courseName, {
             align: 'center',
             y: 380
