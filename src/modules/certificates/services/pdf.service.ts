@@ -23,7 +23,7 @@ interface CertificateData {
 
 class PDFService {
   private certificatesDir: string;
-  private templatePath: string;
+  private templatePath: string = '';
   private fontsDir: string;
   private fonts: Record<string, string>;
   private defaultFont: string;
@@ -57,8 +57,33 @@ class PDFService {
       }
     }
     
-    // Ruta a la plantilla PDF
-    this.templatePath = path.join(__dirname, '../templates/certificado.pdf');
+    // Ruta a la plantilla PDF - buscar en múltiples ubicaciones
+    // 1. En dist/ (producción compilada)
+    // 2. En src/ (desarrollo)
+    const templatePaths = [
+      path.join(__dirname, '../templates/certificado.pdf'), // dist/modules/certificates/templates/
+      path.join(__dirname, '../../../../src/modules/certificates/templates/certificado.pdf'), // desde dist/ hacia src/
+      path.join(process.cwd(), 'src/modules/certificates/templates/certificado.pdf'), // desde raíz del proyecto
+      path.join(process.cwd(), 'dist/modules/certificates/templates/certificado.pdf') // desde raíz compilado
+    ];
+    
+    // Buscar la primera ruta que exista
+    let foundTemplate = false;
+    for (const templatePath of templatePaths) {
+      if (fs.existsSync(templatePath)) {
+        this.templatePath = templatePath;
+        foundTemplate = true;
+        console.log(`✅ [PDF] Plantilla encontrada en: ${templatePath}`);
+        break;
+      }
+    }
+    
+    if (!foundTemplate) {
+      // Usar la primera ruta como fallback (se verificará en generateCertificateFromTemplate)
+      this.templatePath = templatePaths[0];
+      console.warn(`⚠️ [PDF] Plantilla no encontrada en ninguna ubicación. Se usará generación sin plantilla.`);
+      console.warn(`   Rutas buscadas: ${templatePaths.join(', ')}`);
+    }
     
     // Rutas a las fuentes disponibles
     this.fonts = {
@@ -91,12 +116,16 @@ class PDFService {
 
       // Verificar si existe la plantilla
       if (!fs.existsSync(this.templatePath)) {
-        console.warn('Plantilla PDF no encontrada, usando generación sin plantilla');
+        console.warn(`⚠️ [PDF] Plantilla PDF no encontrada en: ${this.templatePath}`);
+        console.warn('   Usando generación sin plantilla (método alternativo)');
         return await this.generateCertificateBuffer(certificateData);
       }
 
+      console.log(`📄 [PDF] Cargando plantilla desde: ${this.templatePath}`);
+      
       // Cargar la plantilla PDF
       const templateBytes = fs.readFileSync(this.templatePath);
+      console.log(`✅ [PDF] Plantilla cargada (${templateBytes.length} bytes)`);
       
       // Cargar el PDF
       const pdfDoc = await PDFLibDocument.load(templateBytes);
@@ -161,11 +190,15 @@ class PDFService {
       
       // Generar el PDF
       const pdfBytes = await pdfDoc.save();
-      return Buffer.from(pdfBytes);
+      const pdfBuffer = Buffer.from(pdfBytes);
+      console.log(`✅ [PDF] PDF generado desde plantilla (${pdfBuffer.length} bytes)`);
+      return pdfBuffer;
       
     } catch (error) {
       const err = error as Error;
-      console.error('Error generando PDF con plantilla:', err);
+      console.error('❌ [PDF] Error generando PDF con plantilla:', err.message);
+      console.error('   Stack:', err.stack);
+      console.warn('   Usando método alternativo (sin plantilla)');
       // Fallback a generación sin plantilla
       return await this.generateCertificateBuffer(certificateData);
     }

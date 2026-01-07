@@ -4,7 +4,8 @@
   "description": "Backend modular para emisión de certificados",
   "main": "dist/",
   "scripts": {
-    "build": "npx prisma generate && npm exec -- tsc",
+    "build": "npx prisma generate && npm exec -- tsc && npm run copy-assets",
+    "copy-assets": "node scripts/copy-assets.js",
     "start": "node dist/index.js",
     "dev": "cross-env PRISMA_CLIENT_ENGINE_TYPE=binary nodemon --exec ts-node src/index.ts",
     "dev:watch": "nodemon --watch src --exec ts-node src/index.ts",

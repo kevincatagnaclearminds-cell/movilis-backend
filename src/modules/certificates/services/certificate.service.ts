@@ -166,25 +166,38 @@ class CertificateService {
     // Generar PDF
     let pdfBuffer: Buffer;
     try {
+      console.log('📄 [Certificate] Generando PDF con plantilla...');
       pdfBuffer = await pdfService.generateCertificateFromTemplate(pdfData, recipientCedula);
+      console.log(`✅ [Certificate] PDF generado (${pdfBuffer.length} bytes)`);
     } catch (error) {
       const err = error as Error;
-      console.warn('Error generando con plantilla, usando método alternativo:', err.message);
+      console.warn('⚠️ [Certificate] Error generando con plantilla, usando método alternativo:', err.message);
       pdfBuffer = await pdfService.generateCertificateBuffer(pdfData);
+      console.log(`✅ [Certificate] PDF generado sin plantilla (${pdfBuffer.length} bytes)`);
     }
 
     // Firmar electrónicamente el PDF
-    // Usar SOLO variables de entorno (.env) - P12_PATH y P12_PASSWORD
+    // Usar SOLO variables de entorno (.env) - P12_BASE64 y P12_PASSWORD
     try {
-      // signPDF usará automáticamente las variables de entorno P12_PATH y P12_PASSWORD
+      console.log('🔏 [Certificate] Iniciando firma digital del PDF...');
+      const originalSize = pdfBuffer.length;
+      // signPDF usará automáticamente las variables de entorno P12_BASE64 y P12_PASSWORD
       pdfBuffer = await pdfService.signPDF(
         pdfBuffer, 
         Buffer.alloc(0),  // No se pasa certificado como parámetro
         ''                // No se pasa password como parámetro
       );
+      const signedSize = pdfBuffer.length;
+      if (signedSize > originalSize) {
+        console.log(`✅ [Certificate] PDF firmado correctamente (${originalSize} → ${signedSize} bytes)`);
+      } else {
+        console.warn(`⚠️ [Certificate] PDF puede no estar firmado (tamaño no cambió: ${originalSize} bytes)`);
+      }
     } catch (error) {
       const err = error as Error;
-      console.warn('⚠️ No se pudo firmar el certificado (continuando sin firma):', err.message);
+      console.error('❌ [Certificate] Error firmando el certificado:', err.message);
+      console.error('   Stack:', err.stack);
+      console.warn('   Continuando sin firma digital');
       // Continuar sin firma si hay error
     }
 
@@ -304,25 +317,38 @@ class CertificateService {
       // Generar PDF directamente
       let pdfBuffer: Buffer;
       try {
+        console.log('📄 [Certificate] Generando PDF con plantilla...');
         pdfBuffer = await pdfService.generateCertificateFromTemplate(pdfData, recipientCedula);
+        console.log(`✅ [Certificate] PDF generado (${pdfBuffer.length} bytes)`);
       } catch (error) {
         const err = error as Error;
-        console.warn('Error generando con plantilla, usando método alternativo:', err.message);
+        console.warn('⚠️ [Certificate] Error generando con plantilla, usando método alternativo:', err.message);
         pdfBuffer = await pdfService.generateCertificateBuffer(pdfData);
+        console.log(`✅ [Certificate] PDF generado sin plantilla (${pdfBuffer.length} bytes)`);
       }
 
       // Intentar firmar el PDF
-      // Usar SOLO variables de entorno (.env) - P12_PATH y P12_PASSWORD
+      // Usar SOLO variables de entorno (.env) - P12_BASE64 y P12_PASSWORD
       try {
-        // signPDF usará automáticamente las variables de entorno P12_PATH y P12_PASSWORD
+        console.log('🔏 [Certificate] Iniciando firma digital del PDF...');
+        const originalSize = pdfBuffer.length;
+        // signPDF usará automáticamente las variables de entorno P12_BASE64 y P12_PASSWORD
         pdfBuffer = await pdfService.signPDF(
           pdfBuffer, 
           Buffer.alloc(0),  // No se pasa certificado como parámetro
           ''                // No se pasa password como parámetro
         );
+        const signedSize = pdfBuffer.length;
+        if (signedSize > originalSize) {
+          console.log(`✅ [Certificate] PDF firmado correctamente (${originalSize} → ${signedSize} bytes)`);
+        } else {
+          console.warn(`⚠️ [Certificate] PDF puede no estar firmado (tamaño no cambió: ${originalSize} bytes)`);
+        }
       } catch (error) {
         const err = error as Error;
-        console.warn('⚠️ No se pudo firmar el certificado (continuando sin firma):', err.message);
+        console.error('❌ [Certificate] Error firmando el certificado:', err.message);
+        console.error('   Stack:', err.stack);
+        console.warn('   Continuando sin firma digital');
       }
 
       // Actualizar estado a 'issued' sin Google Drive
