@@ -25,8 +25,8 @@ COPY . .
 RUN npm run build
 
 # Exponer el puerto (Railway asignará uno automáticamente)
-# Railway usa la variable PORT, no necesitamos especificar un puerto fijo
-EXPOSE $PORT
+# Railway asigna el puerto dinámicamente, exponemos un rango común
+EXPOSE 3000
 
 # Comando de inicio
 CMD ["npm", "start"]

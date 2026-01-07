@@ -30,9 +30,11 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   console.log(`📝 Entorno: ${config.env}`);
   console.log(`🌐 URL: http://0.0.0.0:${PORT}`);
+  console.log(`🔧 process.env.PORT: ${process.env.PORT || 'no definido (usando default 3000)'}`);
   if (process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY) {
     console.log(`🔗 Railway URL: https://${process.env.RAILWAY_PUBLIC_DOMAIN || 'tu-proyecto.up.railway.app'}`);
     console.log(`✅ Servidor listo para recibir conexiones en puerto ${PORT}`);
+    console.log(`✅ Health check disponible en: / y /api/health`);
   }
 });
 
