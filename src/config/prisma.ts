@@ -1,7 +1,11 @@
 // Configurar SSL para Supabase (permite certificados auto-firmados)
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-import 'dotenv/config'; // Asegurar que las variables de entorno se carguen
+// Cargar variables de entorno
+// En Railway, las variables se cargan automáticamente, pero dotenv ayuda en desarrollo
+if (process.env.NODE_ENV !== 'production' || !process.env.RAILWAY_ENVIRONMENT) {
+  require('dotenv/config');
+}
 // Prisma Client se genera dinámicamente - el IDE puede mostrar un error pero el código compila correctamente
 // Si el error persiste, regenerar con: npx prisma generate
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
