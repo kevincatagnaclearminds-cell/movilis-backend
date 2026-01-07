@@ -20,11 +20,20 @@ interface AuthResponse {
 
 class AuthService {
   generateToken(userId: string): string {
+    if (!config.jwtSecret || config.jwtSecret === 'default-secret-change-in-production') {
+      throw new Error('JWT_SECRET no está configurado correctamente');
+    }
     const expiresIn = typeof config.jwtExpiresIn === 'string' ? config.jwtExpiresIn : String(config.jwtExpiresIn || '7d');
     const options: SignOptions = {
       expiresIn: expiresIn
     } as SignOptions;
-    return jwt.sign({ userId }, config.jwtSecret as string, options);
+    try {
+      return jwt.sign({ userId }, config.jwtSecret as string, options);
+    } catch (error) {
+      const err = error as Error;
+      console.error('Error generando token JWT:', err.message);
+      throw new Error('Error al generar token de autenticación');
+    }
   }
 
   async register(userData: {
@@ -68,20 +77,21 @@ class AuthService {
 
   // Login solo con cédula
   async login(cedula: string): Promise<AuthResponse> {
-    // Buscar usuario por cédula
-    const user = await userService.getUserByCedula(cedula);
-    
-    if (!user) {
-      throw new Error('Cédula no registrada');
-    }
+    try {
+      // Buscar usuario por cédula
+      const user = await userService.getUserByCedula(cedula);
+      
+      if (!user) {
+        throw new Error('Cédula no registrada');
+      }
 
-    // Verificar si el usuario está activo
-    if (!user.isActive) {
-      throw new Error('Usuario inactivo');
-    }
+      // Verificar si el usuario está activo
+      if (!user.isActive) {
+        throw new Error('Usuario inactivo');
+      }
 
-    // Generar token
-    const token = this.generateToken(user._id);
+      // Generar token
+      const token = this.generateToken(user._id);
 
     // Determinar redirección según el rol
     let redirectTo: string | undefined;
