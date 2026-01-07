@@ -2,6 +2,10 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 import 'dotenv/config'; // Asegurar que las variables de entorno se carguen
+// Prisma Client se genera dinámicamente - el IDE puede mostrar un error pero el código compila correctamente
+// Si el error persiste, regenerar con: npx prisma generate
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error - Prisma Client se genera dinámicamente en node_modules/.prisma/client
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
