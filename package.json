@@ -22,8 +22,8 @@
   "author": "",
   "license": "ISC",
   "engines": {
-    "node": ">=20.19.0",
-    "npm": ">=9.0.0"
+    "node": ">=22.12.0",
+    "npm": ">=10.0.0"
   },
   "dependencies": {
     "@btielen/pdf-lib-fontkit": "^1.0.0",
