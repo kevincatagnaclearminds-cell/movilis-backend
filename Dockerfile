@@ -13,7 +13,7 @@ COPY prisma ./prisma/
 COPY prisma.config.ts ./
 
 # Instalar dependencias
-RUN npm ci
+RUN npm install
 
 # Generar Prisma Client
 RUN npx prisma generate
