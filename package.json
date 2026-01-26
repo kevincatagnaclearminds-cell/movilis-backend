@@ -13,7 +13,8 @@
     "test": "jest",
     "test:connection": "ts-node scripts/test-connection.ts",
     "vercel-build": "npm run build",
-    "convert-p12": "node scripts/convert-p12-to-base64.js"
+    "convert-p12": "node scripts/convert-p12-to-base64.js",
+    "ensure-fonts": "node scripts/ensure-fonts.js"
   },
   "keywords": [
     "certificates",
@@ -28,6 +29,8 @@
   },
   "dependencies": {
     "@btielen/pdf-lib-fontkit": "^1.0.0",
+    "@fontsource/dancing-script": "^5.2.8",
+    "@fontsource/great-vibes": "^5.2.8",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
     "@signpdf/placeholder-pdf-lib": "^3.2.6",
@@ -59,9 +62,12 @@
     "pdf-signer": "^1.1.4",
     "pdfkit": "^0.14.0",
     "pg": "^8.16.3",
+    "qrcode": "^1.5.3",
+    "sharp": "^0.33.1",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@types/qrcode": "^1.5.6",
     "@vercel/node": "^5.5.16",
     "cross-env": "^10.1.0",
     "jest": "^29.7.0",

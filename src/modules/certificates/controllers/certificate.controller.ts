@@ -60,6 +60,20 @@ class CertificateController {
       };
       res.status(201).json(response);
     } catch (error) {
+      // Manejo específico de errores de validación de UUID
+      const err = error as Error;
+      if (err.message && (err.message.includes('UUID válido') || err.message.includes('inválido') || err.message.includes('vacío'))) {
+        console.warn('⚠️ [Controller] Validación fallida:', err.message);
+        res.status(400).json({
+          success: false,
+          error: {
+            message: 'Datos de entrada inválidos: destinatario es requerido',
+            details: err.message
+          }
+        });
+        return;
+      }
+      // Propagar otros errores al middleware de manejo de errores
       next(error);
     }
   }
@@ -107,6 +121,20 @@ class CertificateController {
       };
       res.status(201).json(response);
     } catch (error) {
+      // Manejo específico de errores de validación de UUID
+      const err = error as Error;
+      if (err.message && (err.message.includes('UUID válido') || err.message.includes('inválido') || err.message.includes('vacío'))) {
+        console.warn('⚠️ [Controller] Validación fallida:', err.message);
+        res.status(400).json({
+          success: false,
+          error: {
+            message: 'Datos de entrada inválidos',
+            details: err.message
+          }
+        });
+        return;
+      }
+      // Propagar otros errores al middleware de manejo de errores
       next(error);
     }
   }
@@ -366,7 +394,9 @@ class CertificateController {
    */
   async downloadCertificate(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      console.log('⬇️ [Download] Iniciando descarga de certificado');
       if (!req.user) {
+        console.error('❌ [Download] Usuario no autenticado');
         res.status(401).json({
           success: false,
           error: { message: 'No autenticado' }
@@ -374,11 +404,11 @@ class CertificateController {
         return;
       }
 
-      // Convertir ID a número si es string (PostgreSQL usa SERIAL)
       const certificateId = isNaN(req.params.id as any) ? req.params.id : parseInt(req.params.id);
-      
-      // Verificar si es un ID de demo (solo si parece ser un string de demo)
+      console.log(`[Download] ID recibido:`, certificateId);
+
       if (String(certificateId).startsWith('cert-demo-')) {
+        console.warn(`[Download] Intento de descarga de demo: ${certificateId}`);
         res.status(400).json({
           success: false,
           error: { message: 'Este es un certificado de demostración. Los certificados reales se obtienen desde la base de datos.' }
@@ -387,8 +417,10 @@ class CertificateController {
       }
 
       const certificate = await certificateService.getCertificateById(certificateId);
+      console.log(`[Download] Certificado encontrado:`, !!certificate);
 
       if (!certificate) {
+        console.error(`[Download] Certificado no encontrado: ${certificateId}`);
         res.status(404).json({
           success: false,
           error: { message: 'Certificado no encontrado' }
@@ -397,32 +429,25 @@ class CertificateController {
       }
 
       // Verificar permisos
-      // Admin puede descargar cualquier certificado
       if (req.user.role === 'admin') {
-        // Permitir descarga
+        console.log(`[Download] Usuario admin, acceso permitido`);
       } else {
         const userId = String(req.user._id);
-        
-        // Verificar si es el emisor
         const issuerIdValue = typeof certificate.issuerId === 'object' && certificate.issuerId !== null
-        ? (certificate.issuerId._id || certificate.issuerId.id)
-        : (certificate.issuerId || certificate.emisorId);
+          ? (certificate.issuerId._id || certificate.issuerId.id)
+          : (certificate.issuerId || certificate.emisorId);
         const isIssuer = issuerIdValue && String(issuerIdValue) === userId;
-        
-        // Verificar directamente en la base de datos si el usuario está asignado
-        // Asegurar que certificateId sea un número si es SERIAL
         const certIdForQuery = typeof certificateId === 'string' && !isNaN(certificateId as any) 
           ? parseInt(certificateId) 
           : certificateId;
         const isAssignedUser = await certificatePostgresService.isUserAssignedToCertificate(certIdForQuery, req.user._id);
-        
-        // Verificar si es el destinatario principal (compatibilidad con sistema anterior)
         const recipientIdValue = typeof certificate.recipientId === 'object' && certificate.recipientId !== null
           ? (certificate.recipientId._id || certificate.recipientId.id)
           : (certificate.recipientId || certificate.destinatarioId);
         const isRecipient = recipientIdValue && String(recipientIdValue) === userId;
-        
+        console.log(`[Download] Permisos: isIssuer=${isIssuer}, isAssignedUser=${isAssignedUser}, isRecipient=${isRecipient}`);
         if (!isIssuer && !isAssignedUser && !isRecipient) {
+          console.warn(`[Download] Usuario no autorizado: ${userId}`);
           res.status(403).json({
             success: false,
             error: { message: 'No autorizado para descargar este certificado' }
@@ -432,16 +457,57 @@ class CertificateController {
       }
 
       // Obtener PDF desde Google Drive o generarlo si no existe
-      // Pasar el ID del usuario que está descargando para generar PDF personalizado
-      const pdfBuffer = await certificateService.generateCertificatePDF(certificateId, req.user._id);
-      
+      console.log(`[Download] Generando o recuperando PDF para certificado: ${certificateId}`);
+      const pdfBuffer = await certificateService.generateCertificatePDF(certificateId);
+      console.log(`[Download] PDF generado. Tamaño: ${pdfBuffer.length} bytes`);
+
+      // Obtener nombre de la firma del archivo P12 (si está disponible)
+      let signerName = 'firma';
+      try {
+        // Intentar extraer el nombre del firmante del certificado P12
+        const forge = require('node-forge');
+        let p12Buffer = null;
+        let p12Password = null;
+        if (process.env.P12_BASE64 && process.env.P12_PASSWORD) {
+          p12Buffer = Buffer.from(process.env.P12_BASE64, 'base64');
+          p12Password = process.env.P12_PASSWORD;
+        } else if (process.env.P12_PATH && process.env.P12_PASSWORD) {
+          const fs = require('fs');
+          if (fs.existsSync(process.env.P12_PATH)) {
+            p12Buffer = fs.readFileSync(process.env.P12_PATH);
+            p12Password = process.env.P12_PASSWORD;
+          }
+        }
+        if (p12Buffer && p12Password) {
+          const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
+          const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, false, p12Password);
+          const certBags = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag];
+          if (certBags && certBags.length > 0) {
+            const cert = certBags[0].cert;
+            if (cert && cert.subject && cert.subject.attributes) {
+              const cnAttr = cert.subject.attributes.find((attr: any) => attr.name === 'commonName');
+              if (cnAttr && cnAttr.value) {
+                signerName = cnAttr.value.replace(/[^a-zA-Z0-9_\-]/g, '_');
+              }
+            }
+          }
+        }
+      } catch (err) {
+        const error = err as Error;
+        console.warn('[Download] No se pudo extraer el nombre de la firma del P12:', error.message);
+      }
+
+      const fileName = `certificado-${certificate.certificateNumber}-${signerName}.pdf`;
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename=certificado-${certificate.certificateNumber}.pdf`
-      );
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.send(pdfBuffer);
+      console.log(`[Download] PDF enviado correctamente al cliente. Nombre: ${fileName}`);
     } catch (error) {
+      const err = error as Error & { stack?: string };
+      console.error('❌ [Download] Error en descarga:', err.message);
+      if (err.stack) {
+        console.error('Stack:', err.stack);
+      }
       next(error);
     }
   }

@@ -1,6 +1,6 @@
 import prisma from '../../../config/prisma';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4, validate: uuidValidate } = require('uuid');
 import { Certificate } from '../../../types';
 import type { certificados_usuarios, certificados } from '@prisma/client';
 
@@ -9,6 +9,53 @@ interface AssignedUser {
   name: string;
   email?: string;
   cedula?: string;
+}
+
+/**
+ * Valida si una cadena es un UUID válido
+ */
+function isValidUUID(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  if (value.trim() === '') return false; // rechazar cadenas vacías
+  return uuidValidate(value);
+}
+
+/**
+ * Sanitiza y valida destinatarioId, extrayendo de objetos o strings
+ */
+function sanitizeDestinationId(data: any): string {
+  let destinatarioId = '';
+  
+  // Verificar destinatarioId como objeto
+  if (data.destinatarioId && typeof data.destinatarioId === 'object' && !Array.isArray(data.destinatarioId)) {
+    destinatarioId = (data.destinatarioId as { _id?: string; id?: string })._id || 
+                     (data.destinatarioId as { _id?: string; id?: string }).id || '';
+  }
+  // Verificar recipientId como objeto
+  else if (data.recipientId && typeof data.recipientId === 'object' && !Array.isArray(data.recipientId)) {
+    destinatarioId = (data.recipientId as { _id?: string; id?: string })._id || 
+                     (data.recipientId as { _id?: string; id?: string }).id || '';
+  }
+  // Usar valores string directos
+  else {
+    destinatarioId = (typeof data.destinatarioId === 'string' ? data.destinatarioId.trim() : '') ||
+                     (typeof data.recipientId === 'string' ? data.recipientId.trim() : '') ||
+                     '';
+  }
+  
+  return destinatarioId;
+}
+
+/**
+ * Filtra y valida lista de userIds, eliminando vacíos/nulos
+ */
+function sanitizeUserIds(userIds: any[]): string[] {
+  if (!Array.isArray(userIds)) return [];
+  
+  return userIds
+    .filter(id => isValidUUID(id))
+    .map(id => (id as string).trim())
+    .filter((id, index, self) => self.indexOf(id) === index); // remover duplicados
 }
 
 interface CertificateFilters {
@@ -51,31 +98,65 @@ class CertificatePrismaService {
    */
   async createCertificate(certificateData: Partial<Certificate> & { userIds?: string[] }): Promise<Certificate> {
     try {
+      // Logging del payload recibido (nivel debug)
+      console.debug('📋 [Certificate] Payload recibido:', {
+        destinatarioId: certificateData.destinatarioId,
+        recipientId: certificateData.recipientId,
+        userIds: certificateData.userIds,
+        issuerId: certificateData.issuerId,
+        emisorId: certificateData.emisorId
+      });
+
+      // ====== VALIDACIÓN Y SANITIZACIÓN ======
+      
+      // Sanitizar emisorId
+      let emisorId = '';
+      if (typeof certificateData.issuerId === 'object' && certificateData.issuerId !== null && !Array.isArray(certificateData.issuerId)) {
+        emisorId = (certificateData.issuerId as { _id?: string; id?: string })._id || 
+                   (certificateData.issuerId as { _id?: string; id?: string }).id || '';
+      } else {
+        emisorId = (typeof certificateData.issuerId === 'string' ? certificateData.issuerId.trim() : '') ||
+                   (typeof certificateData.emisorId === 'string' ? certificateData.emisorId.trim() : '');
+      }
+      
+      if (!isValidUUID(emisorId)) {
+        console.error('❌ [Certificate] emisorId inválido:', emisorId);
+        throw new Error('emisorId es requerido y debe ser un UUID válido');
+      }
+
+      // Sanitizar destinatarioId
+      const destinatarioId = sanitizeDestinationId(certificateData);
+      
+      if (!isValidUUID(destinatarioId)) {
+        console.error('❌ [Certificate] destinatarioId inválido o vacío:', destinatarioId);
+        throw new Error('destinatarioId es requerido y debe ser un UUID válido (no puede estar vacío)');
+      }
+
+      // Sanitizar userIds
+      let userIds = certificateData.userIds || [];
+      
+      // Si hay userIds, validarlos. Si no, usar solo destinatarioId
+      if (userIds.length > 0) {
+        // Asegurar que destinatarioId esté en la lista si es diferente
+        if (!userIds.includes(destinatarioId)) {
+          userIds = [destinatarioId, ...userIds];
+        }
+      } else {
+        // Si no hay userIds, usar solo destinatarioId
+        userIds = [destinatarioId];
+      }
+      
+      const validUserIds = sanitizeUserIds(userIds);
+      
+      console.debug('📋 [Certificate] Datos sanitizados:', {
+        emisorId,
+        destinatarioId,
+        validUserIds,
+        userIdCount: validUserIds.length
+      });
+
       const numeroCertificado = certificateData.numeroCertificado || `CERT-${uuidv4().substring(0, 8).toUpperCase()}`;
       const codigoVerificacion = certificateData.codigoVerificacion || uuidv4();
-
-      const emisorId = typeof certificateData.issuerId === 'object' && certificateData.issuerId !== null && !Array.isArray(certificateData.issuerId)
-        ? (certificateData.issuerId._id || certificateData.issuerId.id || '')
-        : (certificateData.emisorId || (typeof certificateData.issuerId === 'string' ? certificateData.issuerId : '') || '');
-
-      let destinatarioId = '';
-      
-      // Verificar destinatarioId como objeto
-      if (certificateData.destinatarioId && typeof certificateData.destinatarioId === 'object' && !Array.isArray(certificateData.destinatarioId)) {
-        destinatarioId = (certificateData.destinatarioId as { _id?: string; id?: string })._id || 
-                         (certificateData.destinatarioId as { _id?: string; id?: string }).id || '';
-      } 
-      // Verificar recipientId como objeto
-      else if (certificateData.recipientId && typeof certificateData.recipientId === 'object' && !Array.isArray(certificateData.recipientId)) {
-        destinatarioId = (certificateData.recipientId as { _id?: string; id?: string })._id || 
-                         (certificateData.recipientId as { _id?: string; id?: string }).id || '';
-      }
-      // Usar valores string directos
-      else {
-        destinatarioId = (typeof certificateData.destinatarioId === 'string' ? certificateData.destinatarioId : '') ||
-                         (typeof certificateData.recipientId === 'string' ? certificateData.recipientId : '') ||
-                         '';
-      }
 
       // Convertir fechas a objetos Date si son strings
       const fechaEmision = certificateData.fechaEmision || certificateData.issueDate || new Date();
@@ -90,6 +171,15 @@ class CertificatePrismaService {
           ? fechaExpiracion 
           : (typeof fechaExpiracion === 'string' ? new Date(fechaExpiracion) : null);
       }
+
+      // Logging antes de Prisma
+      console.debug('🔍 [Prisma] Data para create:', {
+        numero_certificado: numeroCertificado,
+        nombre_curso: certificateData.nombreCurso || certificateData.courseName,
+        destinatario_id: destinatarioId,
+        emisor_id: emisorId,
+        estado: certificateData.estado || certificateData.status || 'draft'
+      });
 
       // Crear el certificado
       const certificate = await prisma.certificados.create({
@@ -116,12 +206,10 @@ class CertificatePrismaService {
         }
       });
 
-      // Si se proporcionaron usuarios para asignar, asignarlos
-      const userIds = certificateData.userIds || 
-        (certificateData.destinatarioId || certificateData.recipientId ? [certificateData.destinatarioId || certificateData.recipientId as string] : []);
-
-      if (userIds.length > 0) {
-        await this.assignCertificateToUsers(certificate.id, userIds, emisorId);
+      // Asignar usuarios validados
+      if (validUserIds.length > 0) {
+        console.debug(`📌 [Certificate] Asignando ${validUserIds.length} usuario(s) al certificado ${certificate.id}`);
+        await this.assignCertificateToUsers(certificate.id, validUserIds, emisorId);
       }
 
       // Obtener el certificado completo con usuarios asignados

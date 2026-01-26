@@ -2,6 +2,7 @@ import certificatePostgresService from './certificate.prisma.service';
 import googleDriveService from './googleDrive.service';
 import pdfService from './pdf.service';
 import userService from '../../users/services/user.prisma.service';
+import { parsearP12 } from '../../firma/utils/p12.utils';
 import { Certificate } from '../../../types';
 
 interface CertificateFilters {
@@ -163,6 +164,42 @@ class CertificateService {
       metadata: certificate.metadata
     };
 
+    // Extraer nombre real del P12 desde variables de entorno (sin BD)
+    try {
+      let p12Buffer: Buffer | null = null;
+      
+      // Opción 1: P12_BASE64 (recomendado para Vercel)
+      if (process.env.P12_BASE64) {
+        p12Buffer = Buffer.from(process.env.P12_BASE64, 'base64');
+      }
+      // Opción 2: P12_PATH (desarrollo local)
+      else if (process.env.P12_PATH) {
+        const fs = await import('fs');
+        const path = await import('path');
+        const resolvedPath = path.resolve(process.env.P12_PATH);
+        if (fs.existsSync(resolvedPath)) {
+          p12Buffer = fs.readFileSync(resolvedPath);
+        }
+      }
+
+      if (p12Buffer && process.env.P12_PASSWORD) {
+        const p12Result = parsearP12(p12Buffer, process.env.P12_PASSWORD);
+        if (p12Result.success && p12Result.info) {
+          const realSignerName = p12Result.info.nombreCertificado;
+          const sig = {
+            signerName: realSignerName,
+            reason: 'Firmado por Instituto Superior Movilis',
+            date: new Date().toISOString(),
+            certName: realSignerName
+          };
+          pdfData.metadata = { ...(pdfData.metadata || {}), signature: sig };
+          console.log('✅ [Certificate] P12 extraído - Nombre:', realSignerName);
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ [Certificate] Error extrayendo P12:', (err as Error).message);
+    }
+
     // Generar PDF
     let pdfBuffer: Buffer;
     try {
@@ -313,6 +350,42 @@ class CertificateService {
         issuerName,
         metadata: certificate.metadata
       };
+
+      // Extraer nombre real del P12 desde variables de entorno (sin BD)
+      try {
+        let p12Buffer: Buffer | null = null;
+        
+        // Opción 1: P12_BASE64 (recomendado para Vercel)
+        if (process.env.P12_BASE64) {
+          p12Buffer = Buffer.from(process.env.P12_BASE64, 'base64');
+        }
+        // Opción 2: P12_PATH (desarrollo local)
+        else if (process.env.P12_PATH) {
+          const fs = await import('fs');
+          const path = await import('path');
+          const resolvedPath = path.resolve(process.env.P12_PATH);
+          if (fs.existsSync(resolvedPath)) {
+            p12Buffer = fs.readFileSync(resolvedPath);
+          }
+        }
+
+        if (p12Buffer && process.env.P12_PASSWORD) {
+          const p12Result = parsearP12(p12Buffer, process.env.P12_PASSWORD);
+          if (p12Result.success && p12Result.info) {
+            const realSignerName = p12Result.info.nombreCertificado;
+            const sig = {
+              signerName: realSignerName,
+              reason: 'Firmado por Instituto Superior Movilis',
+              date: new Date().toISOString(),
+              certName: realSignerName
+            };
+            pdfData.metadata = { ...(pdfData.metadata || {}), signature: sig };
+            console.log('✅ [Certificate] P12 extraído - Nombre:', realSignerName);
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ [Certificate] Error extrayendo P12:', (err as Error).message);
+      }
 
       // Generar PDF directamente
       let pdfBuffer: Buffer;

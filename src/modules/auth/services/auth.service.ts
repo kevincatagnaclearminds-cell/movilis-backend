@@ -20,8 +20,16 @@ interface AuthResponse {
 
 class AuthService {
   generateToken(userId: string): string {
-    if (!config.jwtSecret || config.jwtSecret === 'default-secret-change-in-production') {
-      throw new Error('JWT_SECRET no está configurado correctamente');
+    // En producción: exigir JWT_SECRET válido.
+    if (config.env === 'production') {
+      if (!config.jwtSecret || config.jwtSecret === 'default-secret-change-in-production') {
+        throw new Error('JWT_SECRET no está configurado correctamente');
+      }
+    } else {
+      // En desarrollo/otros entornos, no bloquear pero mostrar advertencia si se usa el valor por defecto.
+      if (!config.jwtSecret || config.jwtSecret === 'default-secret-change-in-production') {
+        console.warn('⚠️ JWT_SECRET no configurado, usando valor por defecto en entorno de desarrollo');
+      }
     }
     const expiresIn = typeof config.jwtExpiresIn === 'string' ? config.jwtExpiresIn : String(config.jwtExpiresIn || '7d');
     const options: SignOptions = {

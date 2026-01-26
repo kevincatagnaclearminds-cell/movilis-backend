@@ -144,20 +144,20 @@ class FirmaService {
    */
   async obtenerFirmaPorCedula(usuarioCedula: string): Promise<FirmaFormateada | null> {
     try {
-      const result = await pool.query<FirmaRow>(
-        'SELECT * FROM firmas WHERE usuario_cedula = $1',
-        [usuarioCedula]
-      );
+      // Usar Prisma para rawQuery
+      const resultado = await prisma.$queryRaw<FirmaRow[]>`
+        SELECT * FROM firmas WHERE usuario_cedula = ${usuarioCedula}
+      `;
 
-      if (result.rows.length === 0) {
+      if (!resultado || resultado.length === 0) {
         return null;
       }
 
-      return this.formatearFirma(result.rows[0]);
+      return this.formatearFirma(resultado[0]);
     } catch (error) {
       const err = error as Error;
-      console.error('Error obteniendo firma:', err.message);
-      throw error;
+      console.warn('⚠️ Error obteniendo firma por cédula:', err.message);
+      return null; // Retornar null en lugar de lanzar error
     }
   }
 
@@ -222,30 +222,34 @@ class FirmaService {
    */
   async obtenerArchivoP12(usuarioCedula: string): Promise<{ buffer: Buffer; password: string } | null> {
     try {
-      const result = await pool.query<{
+      // Usar Prisma para hacer rawQuery
+      const resultado = await prisma.$queryRaw<{
         archivo_encriptado: string;
         archivo_iv: string;
         password_encriptado: string;
         password_iv: string;
-      }>(
-        'SELECT archivo_encriptado, archivo_iv, password_encriptado, password_iv FROM firmas WHERE usuario_cedula = $1',
-        [usuarioCedula]
-      );
+      }[]>`
+        SELECT archivo_encriptado, archivo_iv, password_encriptado, password_iv 
+        FROM firmas 
+        WHERE usuario_cedula = ${usuarioCedula}
+      `;
 
-      if (result.rows.length === 0) {
+      if (!resultado || resultado.length === 0) {
+        console.warn(`⚠️ [Firma] No se encontró P12 para cédula: ${usuarioCedula}`);
         return null;
       }
 
-      const firma = result.rows[0];
+      const firma = resultado[0];
       
       const archivoBuffer = desencriptarDatos(firma.archivo_encriptado, firma.archivo_iv);
       const password = desencriptarDatos(firma.password_encriptado, firma.password_iv).toString();
 
+      console.log(`✅ [Firma] P12 obtenido para cédula: ${usuarioCedula}`);
       return { buffer: archivoBuffer, password };
     } catch (error) {
       const err = error as Error;
-      console.error('Error obteniendo archivo P12:', err.message);
-      throw error;
+      console.error('❌ Error obteniendo archivo P12:', err.message);
+      return null; // Retornar null en lugar de lanzar error
     }
   }
 
